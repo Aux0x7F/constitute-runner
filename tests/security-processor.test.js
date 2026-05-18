@@ -77,7 +77,8 @@ test("security runner cli executes the bootstrap fixture", () => {
 });
 
 test("security app fixture declares event fabric, access, and materialization requirements", () => {
-  const fixture = securityAppContractFixture();
+  const now = 1_700_000_000;
+  const fixture = securityAppContractFixture(now);
   assert.equal(fixture.appContract.appId, "constitute-security");
   assert.equal(fixture.appContract.grantRefs.includes("grant:app:constitute-security:run"), true);
   assert.deepEqual(fixture.appContract.accessGroupRefs, ["access-group:logging.security.default"]);

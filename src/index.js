@@ -309,6 +309,11 @@ export function appRunnerFulfillmentFixture(now = nowSeconds()) {
         runnerRequirementRefs: ["runner:req:runner-proof"],
         serviceManagerRequirementRefs: ["service-manager:req:runner-proof"],
         compatibilityRefs: ["protocol:surface-app:v1"],
+        compatibilityWindow: {
+          minVersion: "0.1.0",
+          maxVersion: "0.1.x",
+          protocolRef: "protocol:surface-app:v1",
+        },
         bootstrapContractRef: "bootstrap-contract:runner-proof",
         releaseContractRef: "release:runner-proof",
         evidenceRefs: ["build:runner-proof"],
@@ -563,6 +568,11 @@ export function securityAppContractFixture(now = nowSeconds()) {
         runnerRequirementRefs: ["runner:req:security-bootstrap"],
         serviceManagerRequirementRefs: ["service-manager:req:security-bootstrap"],
         compatibilityRefs: ["protocol:surface-app:v1", "protocol:security-seed:v1"],
+        compatibilityWindow: {
+          minVersion: "0.1.0",
+          maxVersion: "0.1.x",
+          protocolRef: "protocol:surface-app:v1",
+        },
         bootstrapContractRef: "bootstrap-contract:security-bootstrap",
         releaseContractRef: "release:security:bootstrap",
         authorityRefs: appContract.authorityRefs,
