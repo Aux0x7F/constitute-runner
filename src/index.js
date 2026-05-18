@@ -7,6 +7,7 @@ import {
   assertAccessGroup,
   assertActionAuthorityExercise,
   assertActionAuthorityGrant,
+  assertAppRunnerFulfillmentLifecycle as assertProtocolAppRunnerFulfillmentLifecycle,
   assertAppRunnerFulfillmentReport as assertProtocolAppRunnerFulfillmentReport,
   assertAuthorityMultiIdentityProof,
   assertAuthorityRootOperation,
@@ -18,6 +19,7 @@ import {
 
 export const SECURITY_RUN_KIND = "security.processor.run.report";
 export const APP_RUNNER_FULFILLMENT_KIND = SWARM.RECORD_KIND.APP_RUNNER_FULFILLMENT_REPORT;
+export const APP_RUNNER_FULFILLMENT_LIFECYCLE_KIND = SWARM.RECORD_KIND.APP_RUNNER_FULFILLMENT_LIFECYCLE;
 
 const ALERT_SEVERITIES = new Set(["critical", "error", "warn"]);
 const TERMINAL_BLOCKED_STATES = new Set([
@@ -231,6 +233,38 @@ export function buildAppRunnerFulfillment(input = {}) {
 
 export function assertAppRunnerFulfillmentReport(record) {
   return assertProtocolAppRunnerFulfillmentReport(record);
+}
+
+export function buildAppRunnerFulfillmentLifecycle(input = {}) {
+  const report = input.report
+    ? assertAppRunnerFulfillmentReport(input.report)
+    : buildAppRunnerFulfillment(input);
+  const lifecycle = {
+    ...report,
+    kind: APP_RUNNER_FULFILLMENT_LIFECYCLE_KIND,
+    lifecycleId: String(input.lifecycleId || `app-runner-lifecycle:${report.reportId}`),
+    witnessRefs: unique([
+      ...asArray(report.witnessRefs),
+      ...asArray(input.witnessRefs),
+    ]),
+    releaseWitnessRefs: unique([
+      ...asArray(report.releaseWitnessRefs),
+      ...asArray(input.releaseWitnessRefs),
+    ]),
+    requestedAt: report.operationPosture?.requestedAt,
+    acceptedAt: report.operationPosture?.acceptedAt,
+    startedAt: report.operationPosture?.startedAt,
+    completedAt: report.operationPosture?.completedAt,
+    releasedAt: input.releasedAt || (report.state === RUNNER.FULFILLMENT_STATE.RELEASED ? report.observedAt : undefined),
+    rolledBackAt: input.rolledBackAt || (report.state === RUNNER.FULFILLMENT_STATE.ROLLED_BACK ? report.observedAt : undefined),
+    rejectedAt: input.rejectedAt || (["blocked", "failed", "rejected", "cancelled"].includes(report.state) ? report.observedAt : undefined),
+    expiredAt: input.expiredAt,
+  };
+  return assertProtocolAppRunnerFulfillmentLifecycle(lifecycle);
+}
+
+export function assertAppRunnerFulfillmentLifecycle(record) {
+  return assertProtocolAppRunnerFulfillmentLifecycle(record);
 }
 
 export function appRunnerFulfillmentFixture(now = nowSeconds()) {
