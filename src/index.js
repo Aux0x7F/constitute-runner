@@ -11,9 +11,12 @@ import {
   assertAuthorityRootOperation,
   assertRunnerOperation,
   assertSecurityProcessorSeed,
+  assertSurfaceAppContract,
+  assertSurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
 export const SECURITY_RUN_KIND = "security.processor.run.report";
+export const APP_RUNNER_FULFILLMENT_KIND = "app.runner.fulfillment.report";
 
 const ALERT_SEVERITIES = new Set(["critical", "error", "warn"]);
 const TERMINAL_BLOCKED_STATES = new Set([
@@ -101,6 +104,279 @@ function outputUniverse(seed) {
     ...asArray(seed.retentionHoldRefs),
     ...asArray(seed.storageRefs),
   ]);
+}
+
+function appContractRefUniverse(appContract, manifest) {
+  return stringSet([
+    appContract?.contractId,
+    appContract?.appRef,
+    appContract?.appId && appContract?.version ? `${appContract.appId}@${appContract.version}` : "",
+    manifest?.manifestId,
+    manifest?.currentAppContractRef,
+    manifest?.appId && manifest?.currentVersion ? `${manifest.appId}@${manifest.currentVersion}` : "",
+  ]);
+}
+
+function normalizedAppOperationState(runnerOperation, blockedReasons) {
+  if (blockedReasons.length) return "blocked";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.REJECTED) return "rejected";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.FAILED) return "failed";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.CANCELLED) return "cancelled";
+  if (runnerOperation.operation === RUNNER.OPERATION.RELEASE || runnerOperation.state === RUNNER.OPERATION_STATE.RELEASED) return "released";
+  if (runnerOperation.operation === RUNNER.OPERATION.ROLLBACK && runnerOperation.state === RUNNER.OPERATION_STATE.SUCCEEDED) return "rolledBack";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.SUCCEEDED) return "succeeded";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.RUNNING) return "running";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.ACCEPTED) return "accepted";
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.REQUESTED) return "requested";
+  return runnerOperation.state || "unknown";
+}
+
+export function buildAppRunnerFulfillment(input = {}) {
+  const runnerOperation = assertRunnerOperation(input.runnerOperation);
+  const appContract = input.appContract ? assertSurfaceAppContract(input.appContract) : null;
+  const manifest = input.manifest ? assertSurfaceAppManifest(input.manifest) : null;
+  const observedAt = Number(input.now || runnerOperation.observedAt || 0) || nowSeconds();
+  const refs = appContractRefUniverse(appContract, manifest);
+  const blockedReasons = [];
+  if (!appContract) blockedReasons.push("missingAppContract");
+  if (!manifest) blockedReasons.push("missingAppManifest");
+  if (TERMINAL_BLOCKED_STATES.has(runnerOperation.state)) blockedReasons.push(`runnerOperation:${runnerOperation.state}`);
+  if (runnerOperation.expiresAt !== undefined && Number(runnerOperation.expiresAt || 0) <= observedAt) blockedReasons.push("runnerOperationExpired");
+  if (refs.size && !refs.has(runnerOperation.contractRef)) blockedReasons.push("contractRefMismatch");
+  if (!intersects(stringSet(runnerOperation.inputRefs), refs)) blockedReasons.push("inputRefMismatch");
+  if (!runnerOperation.resourceBudget || typeof runnerOperation.resourceBudget !== "object") blockedReasons.push("missingResourceBudget");
+  if (runnerOperation.secretBoundary?.state === SURFACE_APP.SECRET_BOUNDARY.BLOCKED) blockedReasons.push("secretBoundaryBlocked");
+  if (runnerOperation.releasePosture?.state === SURFACE_APP.RELEASE_POSTURE.BLOCKED) blockedReasons.push("releasePostureBlocked");
+  if (runnerOperation.rollbackPosture?.state === SURFACE_APP.RELEASE_POSTURE.BLOCKED) blockedReasons.push("rollbackPostureBlocked");
+  const state = normalizedAppOperationState(runnerOperation, unique(blockedReasons));
+  const report = {
+    kind: APP_RUNNER_FULFILLMENT_KIND,
+    reportId: String(input.reportId || `app-runner:${runnerOperation.runnerId}:${runnerOperation.operationId}`),
+    runnerId: runnerOperation.runnerId,
+    runnerRef: runnerOperation.runnerRef,
+    hostRef: runnerOperation.hostRef,
+    runnerOperationId: runnerOperation.operationId,
+    operation: runnerOperation.operation,
+    state,
+    requesterRef: runnerOperation.requesterRef,
+    subjectRef: runnerOperation.subjectRef,
+    contractRef: runnerOperation.contractRef,
+    appContractRef: String(appContract?.appRef || appContract?.contractId || ""),
+    appId: String(appContract?.appId || manifest?.appId || ""),
+    version: String(appContract?.version || manifest?.currentVersion || ""),
+    manifestRef: String(manifest?.manifestId || ""),
+    grantRefs: unique(runnerOperation.grantRefs),
+    capabilityRefs: unique(runnerOperation.capabilityRefs),
+    inputRefs: unique(runnerOperation.inputRefs),
+    outputRefs: unique(runnerOperation.outputRefs),
+    evidenceRefs: unique(runnerOperation.evidenceRefs),
+    proofRefs: unique(runnerOperation.proofRefs),
+    releaseRefs: unique(runnerOperation.releaseRefs),
+    resourceBudget: runnerOperation.resourceBudget,
+    resourcePosture: runnerOperation.resourcePosture || null,
+    secretBoundary: runnerOperation.secretBoundary || { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture: runnerOperation.releasePosture || null,
+    rollbackPosture: runnerOperation.rollbackPosture || null,
+    releaseRef: runnerOperation.releaseRef || "",
+    rollbackRef: runnerOperation.rollbackRef || "",
+    operationPosture: {
+      state,
+      accepted: Boolean(runnerOperation.acceptedAt || runnerOperation.startedAt || runnerOperation.completedAt),
+      rejected: ["blocked", "failed", "rejected", "cancelled"].includes(state),
+      requestedAt: runnerOperation.requestedAt,
+      acceptedAt: runnerOperation.acceptedAt,
+      startedAt: runnerOperation.startedAt,
+      completedAt: runnerOperation.completedAt,
+      observedAt,
+    },
+    fulfillmentPosture: {
+      state,
+      outputRefs: unique(runnerOperation.outputRefs),
+      releaseRefs: unique(runnerOperation.releaseRefs),
+      proofRefs: unique(runnerOperation.proofRefs),
+      evidenceRefs: unique(runnerOperation.evidenceRefs),
+      expiresAt: runnerOperation.expiresAt,
+    },
+    safeFacts: {
+      appId: String(appContract?.appId || manifest?.appId || ""),
+      version: String(appContract?.version || manifest?.currentVersion || ""),
+      sourceMode: String(manifest?.defaultSourceMode || "bundled"),
+      moduleRoleCount: asArray(appContract?.requiredModuleRoles).length,
+      outputRefCount: asArray(runnerOperation.outputRefs).length,
+      releaseRefCount: asArray(runnerOperation.releaseRefs).length,
+      proofRefCount: asArray(runnerOperation.proofRefs).length,
+    },
+    blockedReasons: unique(blockedReasons),
+    observedAt,
+    expiresAt: runnerOperation.expiresAt,
+  };
+  return assertAppRunnerFulfillmentReport(report);
+}
+
+export function assertAppRunnerFulfillmentReport(record) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) throw new Error("app runner fulfillment report must be an object");
+  if (record.kind !== APP_RUNNER_FULFILLMENT_KIND) throw new Error("invalid app runner fulfillment report kind");
+  for (const field of ["reportId", "runnerId", "runnerRef", "hostRef", "runnerOperationId", "operation", "state", "requesterRef", "subjectRef", "contractRef"]) {
+    if (!String(record[field] || "").trim()) throw new Error(`app runner fulfillment report missing ${field}`);
+  }
+  if (!["requested", "accepted", "running", "succeeded", "released", "rolledBack", "blocked", "failed", "rejected", "cancelled"].includes(record.state)) {
+    throw new Error("invalid app runner fulfillment state");
+  }
+  for (const field of ["grantRefs", "inputRefs", "outputRefs", "evidenceRefs", "proofRefs", "releaseRefs", "blockedReasons"]) {
+    if (!Array.isArray(record[field])) throw new Error(`app runner fulfillment report ${field} must be an array`);
+  }
+  for (const field of ["resourceBudget", "secretBoundary", "operationPosture", "fulfillmentPosture", "safeFacts"]) {
+    if (!record[field] || typeof record[field] !== "object" || Array.isArray(record[field])) throw new Error(`app runner fulfillment report ${field} must be an object`);
+  }
+  if (["blocked", "failed", "rejected", "cancelled"].includes(record.state) && record.blockedReasons.length === 0) {
+    throw new Error("blocked app runner fulfillment requires blockedReasons");
+  }
+  rejectUnsafeSafeFacts(record.safeFacts, "app runner fulfillment report");
+  if (!Number(record.observedAt || 0)) throw new Error("app runner fulfillment report missing observedAt");
+  return record;
+}
+
+export function appRunnerFulfillmentFixture(now = nowSeconds()) {
+  const appContract = assertSurfaceAppContract({
+    contractId: "surface-app:runner-proof",
+    schemaVersion: SURFACE_APP.SCHEMA_VERSION,
+    appId: "constitute-runner-proof",
+    appRef: "app:runner-proof",
+    version: "0.1.0",
+    displayName: "Runner Proof",
+    requiredPrimitives: ["runtime.attach", "runner.operation"],
+    requiredModuleRoles: [
+      SURFACE_APP.MODULE_ROLE.RUNTIME_CLIENT,
+      SURFACE_APP.MODULE_ROLE.PRODUCT_VIEW,
+    ],
+    modules: [
+      {
+        moduleRef: "constitute-ui/runtime-surface-client@0.1.0",
+        role: SURFACE_APP.MODULE_ROLE.RUNTIME_CLIENT,
+        participantSide: SURFACE_APP.PARTICIPANT_SIDE.WINDOW,
+        fulfillmentMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
+        version: "0.1.0",
+        primitiveRefs: ["runtime.attach"],
+        issuedAt: now,
+      },
+      {
+        moduleRef: "constitute-runner-proof/product-view@0.1.0",
+        role: SURFACE_APP.MODULE_ROLE.PRODUCT_VIEW,
+        participantSide: SURFACE_APP.PARTICIPANT_SIDE.WINDOW,
+        fulfillmentMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
+        version: "0.1.0",
+        primitiveRefs: ["runtime.posture.render"],
+        issuedAt: now,
+      },
+    ],
+    updatePosture: { state: SURFACE_APP.UPDATE_POSTURE.STATIC },
+    serviceManagerPosture: {
+      managerId: "manager:runner-proof",
+      subjectRef: "app:runner-proof",
+      managerRef: "manager:runner-proof",
+      state: SURFACE_APP.SERVICE_MANAGER_POSTURE.MANUAL,
+      serviceRefs: ["app:runner-proof"],
+      capabilityRefs: ["service.manage"],
+      evidenceRefs: ["build:runner-proof"],
+      issuedAt: now,
+      expiresAt: now + 3600,
+    },
+    secretBoundary: { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture: {
+      state: SURFACE_APP.RELEASE_POSTURE.ROLLBACK_READY,
+      buildRef: "build:runner-proof",
+      releaseRef: "release:runner-proof",
+      rollbackRef: "rollback:runner-proof",
+    },
+    issuedAt: now,
+  });
+  const manifest = assertSurfaceAppManifest({
+    kind: SWARM.RECORD_KIND.SURFACE_APP_MANIFEST,
+    manifestId: "manifest:runner-proof",
+    appId: appContract.appId,
+    state: SURFACE_APP.MANIFEST_VERSION_STATE.CURRENT,
+    currentAppContractRef: appContract.appRef,
+    currentVersion: appContract.version,
+    defaultSourceMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
+    requiredModuleRoles: appContract.requiredModuleRoles,
+    bundledSourceRefs: ["bundle:runner-proof@0.1.0"],
+    versions: [
+      {
+        appContractRef: appContract.appRef,
+        version: appContract.version,
+        state: SURFACE_APP.MANIFEST_VERSION_STATE.CURRENT,
+        sourceMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
+        requiredModuleRoles: appContract.requiredModuleRoles,
+        bundledSourceRefs: ["bundle:runner-proof@0.1.0"],
+        grantRefs: ["grant:app:runner-proof:run"],
+        runnerRequirementRefs: ["runner:req:runner-proof"],
+        serviceManagerRequirementRefs: ["service-manager:req:runner-proof"],
+        compatibilityRefs: ["protocol:surface-app:v1"],
+        bootstrapContractRef: "bootstrap-contract:runner-proof",
+        releaseContractRef: "release:runner-proof",
+        evidenceRefs: ["build:runner-proof"],
+        issuedAt: now,
+      },
+    ],
+    appContractRefs: [appContract.appRef],
+    grantRefs: ["grant:app:runner-proof:run"],
+    runnerRequirementRefs: ["runner:req:runner-proof"],
+    serviceManagerRequirementRefs: ["service-manager:req:runner-proof"],
+    compatibilityRefs: ["protocol:surface-app:v1"],
+    bootstrapContractRefs: ["bootstrap-contract:runner-proof"],
+    releaseContractRefs: ["release:runner-proof"],
+    authorityRefs: ["authority:runner-proof"],
+    evidenceRefs: ["build:runner-proof"],
+    issuedAt: now,
+  });
+  const runnerOperation = assertRunnerOperation({
+    kind: SWARM.RECORD_KIND.RUNNER_OPERATION,
+    operationId: "runner-operation:app-proof:execute:1",
+    runnerId: "runner:lab-gateway:app-proof",
+    runnerRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
+    hostRef: "host:lab-gateway",
+    requesterRef: "identity:aux",
+    subjectRef: appContract.appRef,
+    contractRef: appContract.appRef,
+    operation: RUNNER.OPERATION.EXECUTE,
+    state: RUNNER.OPERATION_STATE.SUCCEEDED,
+    grantRefs: ["grant:app:runner-proof:run"],
+    capabilityRefs: ["app.runner.pin"],
+    inputRefs: [manifest.manifestId, appContract.appRef],
+    outputRefs: ["artifact:runner-proof:dist", "proof:runner-proof:surface"],
+    evidenceRefs: ["evidence:runner:accepted", "evidence:runner:completed"],
+    proofRefs: ["proof:runner-proof:surface"],
+    releaseRefs: ["release:runner-proof"],
+    resourceBudget: {
+      profileRef: "resource-profile:operator-dev",
+      maxMemoryMiB: 256,
+      maxCpuPct: 25,
+    },
+    resourcePosture: {
+      kind: SWARM.RECORD_KIND.RESOURCE_POSTURE,
+      postureId: "resource-posture:runner:app-proof",
+      profileId: "resource-profile:operator-dev",
+      state: SWARM.RESOURCE_POSTURE_STATE.WITHIN_BUDGET,
+      counts: { memoryMiB: 96, cpuPct: 4 },
+      budgets: { memoryMiB: 256, cpuPct: 25 },
+      sampledAt: now + 3,
+    },
+    secretBoundary: { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture: appContract.releasePosture,
+    releaseRef: "release:runner-proof",
+    rollbackRef: "rollback:runner-proof",
+    safeFacts: {
+      appId: appContract.appId,
+      mode: "operatorDev",
+    },
+    requestedAt: now,
+    acceptedAt: now + 1,
+    startedAt: now + 2,
+    completedAt: now + 10,
+    observedAt: now + 12,
+    expiresAt: now + 3600,
+  });
+  return { appContract, manifest, runnerOperation };
 }
 
 export function buildSecurityProcessorRun(input = {}) {

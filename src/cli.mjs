@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import {
+  appRunnerFulfillmentFixture,
+  buildAppRunnerFulfillment,
   buildMultiIdentityGrantProof,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
@@ -14,7 +16,7 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture security-bootstrap | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture security-bootstrap|multi-identity-grant|app-fulfillment | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
@@ -27,6 +29,9 @@ if (fixture === "security-bootstrap") {
 } else if (fixture === "multi-identity-grant") {
   console.log(JSON.stringify(buildMultiIdentityGrantProof(multiIdentityGrantFixture()), null, 2));
   process.exit(0);
+} else if (fixture === "app-fulfillment") {
+  console.log(JSON.stringify(buildAppRunnerFulfillment(appRunnerFulfillmentFixture()), null, 2));
+  process.exit(0);
 } else if (inputPath) {
   input = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 } else {
@@ -34,5 +39,7 @@ if (fixture === "security-bootstrap") {
   process.exit(1);
 }
 
-const report = buildSecurityProcessorRun(input);
+const report = input.appContract && input.manifest
+  ? buildAppRunnerFulfillment(input)
+  : buildSecurityProcessorRun(input);
 console.log(JSON.stringify(report, null, 2));
