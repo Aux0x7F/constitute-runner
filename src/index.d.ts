@@ -3,6 +3,7 @@ import type {
   AccessGroupRecord,
   ActionAuthorityExerciseRecord,
   ActionAuthorityGrantRecord,
+  AppRunnerFulfillmentLifecycle,
   AppRunnerFulfillmentReport,
   AuthorityMultiIdentityProofRecord,
   AuthorityRootOperationRecord,
@@ -12,7 +13,7 @@ import type {
   SurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
-export type { AppRunnerFulfillmentReport } from "../../constitute-protocol/src/index.js";
+export type { AppRunnerFulfillmentLifecycle, AppRunnerFulfillmentReport } from "../../constitute-protocol/src/index.js";
 
 export type SecurityObservedEvent = {
   eventRef?: string;
@@ -75,6 +76,22 @@ export function buildAppRunnerFulfillment(input: {
 }): AppRunnerFulfillmentReport;
 
 export function assertAppRunnerFulfillmentReport(record: unknown): AppRunnerFulfillmentReport;
+export function buildAppRunnerFulfillmentLifecycle(input: {
+  appContract?: SurfaceAppContract;
+  manifest?: SurfaceAppManifest;
+  runnerOperation?: RunnerOperationRecord;
+  report?: AppRunnerFulfillmentReport;
+  now?: number;
+  reportId?: string;
+  lifecycleId?: string;
+  witnessRefs?: string[];
+  releaseWitnessRefs?: string[];
+  releasedAt?: number;
+  rolledBackAt?: number;
+  rejectedAt?: number;
+  expiredAt?: number;
+}): AppRunnerFulfillmentLifecycle;
+export function assertAppRunnerFulfillmentLifecycle(record: unknown): AppRunnerFulfillmentLifecycle;
 export function appRunnerFulfillmentFixture(now?: number): {
   appContract: SurfaceAppContract;
   manifest: SurfaceAppManifest;

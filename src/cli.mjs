@@ -3,6 +3,7 @@ import fs from "node:fs";
 import {
   appRunnerFulfillmentFixture,
   buildAppRunnerFulfillment,
+  buildAppRunnerFulfillmentLifecycle,
   buildMultiIdentityGrantProof,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
@@ -17,7 +18,7 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture security-bootstrap|security-app-contract|multi-identity-grant|app-fulfillment | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture security-bootstrap|security-app-contract|multi-identity-grant|app-fulfillment|app-lifecycle | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
@@ -36,6 +37,9 @@ if (fixture === "security-bootstrap") {
 } else if (fixture === "app-fulfillment") {
   console.log(JSON.stringify(buildAppRunnerFulfillment(appRunnerFulfillmentFixture()), null, 2));
   process.exit(0);
+} else if (fixture === "app-lifecycle") {
+  console.log(JSON.stringify(buildAppRunnerFulfillmentLifecycle(appRunnerFulfillmentFixture()), null, 2));
+  process.exit(0);
 } else if (inputPath) {
   input = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 } else {
@@ -44,6 +48,6 @@ if (fixture === "security-bootstrap") {
 }
 
 const report = input.appContract && input.manifest
-  ? buildAppRunnerFulfillment(input)
+  ? (input.lifecycle ? buildAppRunnerFulfillmentLifecycle(input) : buildAppRunnerFulfillment(input))
   : buildSecurityProcessorRun(input);
 console.log(JSON.stringify(report, null, 2));

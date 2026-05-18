@@ -3,10 +3,12 @@ import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import {
   appRunnerFulfillmentFixture,
+  assertAppRunnerFulfillmentLifecycle,
   assertAppRunnerFulfillmentReport,
   buildMultiIdentityGrantProof,
   assertSecurityProcessorRunReport,
   buildAppRunnerFulfillment,
+  buildAppRunnerFulfillmentLifecycle,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
   securityAppContractFixture,
@@ -154,6 +156,16 @@ test("app runner fulfillment reports executed app contract posture", () => {
   assert.equal(report.fulfillmentPosture.releaseRefs.includes("release:runner-proof"), true);
   assert.deepEqual(report.blockedReasons, []);
   assertAppRunnerFulfillmentReport(report);
+
+  const lifecycle = buildAppRunnerFulfillmentLifecycle({
+    report,
+    witnessRefs: ["witness:operator:runner-proof"],
+  });
+  assert.equal(lifecycle.kind, "app.runner.fulfillment.lifecycle");
+  assert.equal(lifecycle.state, "succeeded");
+  assert.equal(lifecycle.reportId, report.reportId);
+  assert.deepEqual(lifecycle.witnessRefs, ["witness:operator:runner-proof"]);
+  assertAppRunnerFulfillmentLifecycle(lifecycle);
 });
 
 test("app runner fulfillment blocks app contract and manifest mismatches", () => {
@@ -200,4 +212,15 @@ test("runner cli executes the app fulfillment fixture", () => {
   const report = JSON.parse(stdout);
   assert.equal(report.state, "succeeded");
   assert.equal(report.safeFacts.appId, "constitute-runner-proof");
+});
+
+test("runner cli executes the app lifecycle fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "app-lifecycle"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const lifecycle = JSON.parse(stdout);
+  assert.equal(lifecycle.kind, "app.runner.fulfillment.lifecycle");
+  assert.equal(lifecycle.state, "succeeded");
+  assert.equal(lifecycle.safeFacts.appId, "constitute-runner-proof");
 });
