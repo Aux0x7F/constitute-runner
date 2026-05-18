@@ -8,3 +8,13 @@ contracts, enforces resource and secret boundaries, and emits safe execution
 posture for alert, evidence-hold, app fulfillment, release, and proof workflows.
 It does not own event semantics, storage semantics, logging semantics, product
 UI state, or app source selection.
+
+## Commands
+
+```bash
+npm test
+npm run build
+node src/cli.mjs --fixture security-bootstrap
+node src/cli.mjs --fixture security-app-contract
+node src/cli.mjs --fixture app-fulfillment
+```

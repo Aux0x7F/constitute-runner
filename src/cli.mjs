@@ -6,6 +6,7 @@ import {
   buildMultiIdentityGrantProof,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
+  securityAppContractFixture,
   securityBootstrapFixture,
 } from "./index.js";
 
@@ -16,7 +17,7 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture security-bootstrap|multi-identity-grant|app-fulfillment | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture security-bootstrap|security-app-contract|multi-identity-grant|app-fulfillment | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
@@ -25,6 +26,9 @@ let input;
 
 if (fixture === "security-bootstrap") {
   console.log(JSON.stringify(buildSecurityProcessorRun(securityBootstrapFixture()), null, 2));
+  process.exit(0);
+} else if (fixture === "security-app-contract") {
+  console.log(JSON.stringify(securityAppContractFixture(), null, 2));
   process.exit(0);
 } else if (fixture === "multi-identity-grant") {
   console.log(JSON.stringify(buildMultiIdentityGrantProof(multiIdentityGrantFixture()), null, 2));

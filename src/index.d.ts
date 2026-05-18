@@ -59,6 +59,13 @@ export function securityBootstrapFixture(now?: number): {
   observedEvents: SecurityObservedEvent[];
 };
 
+export function securityAppContractFixture(now?: number): {
+  appContract: SurfaceAppContract;
+  manifest: SurfaceAppManifest;
+  seed: SecurityProcessorSeedRecord;
+  runnerOperation: RunnerOperationRecord;
+};
+
 export function buildAppRunnerFulfillment(input: {
   appContract: SurfaceAppContract;
   manifest: SurfaceAppManifest;

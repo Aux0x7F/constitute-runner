@@ -9,6 +9,7 @@ import {
   buildAppRunnerFulfillment,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
+  securityAppContractFixture,
   securityBootstrapFixture,
 } from "../src/index.js";
 
@@ -73,6 +74,36 @@ test("security runner cli executes the bootstrap fixture", () => {
   const report = JSON.parse(stdout);
   assert.equal(report.state, "alerted");
   assert.equal(report.safeFacts.alertCount, 1);
+});
+
+test("security app fixture declares event fabric, access, and materialization requirements", () => {
+  const fixture = securityAppContractFixture();
+  assert.equal(fixture.appContract.appId, "constitute-security");
+  assert.equal(fixture.appContract.grantRefs.includes("grant:app:constitute-security:run"), true);
+  assert.deepEqual(fixture.appContract.accessGroupRefs, ["access-group:logging.security.default"]);
+  assert.deepEqual(fixture.appContract.requiredContentClasses, ["encryptedDetail", "safeIndex"]);
+  assert.equal(fixture.appContract.projectionSubscriptions[0].processorRoleRef, "role:security.processor");
+  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.encrypted-detail.refs"), true);
+  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.alerts.ui"), true);
+
+  const report = buildAppRunnerFulfillment(fixture);
+  assert.equal(report.state, "succeeded");
+  assert.equal(report.appId, "constitute-security");
+  assert.equal(report.sourceMode, "bundled");
+  assert.equal(report.safeFacts.sourceRefCount, 1);
+  assert.equal(report.inputRefs.includes(fixture.seed.seedId), true);
+  assertAppRunnerFulfillmentReport(report);
+});
+
+test("security runner cli emits the security app contract fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "security-app-contract"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const fixture = JSON.parse(stdout);
+  assert.equal(fixture.appContract.appId, "constitute-security");
+  assert.equal(fixture.manifest.currentAppContractRef, "app:constitute-security");
+  assert.equal(fixture.seed.processorRoleRef, "role:security.processor");
 });
 
 test("multi-identity grant proof preserves authority plane separation", () => {
