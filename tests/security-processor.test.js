@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import {
+  buildMultiIdentityGrantProof,
   assertSecurityProcessorRunReport,
   buildSecurityProcessorRun,
+  multiIdentityGrantFixture,
   securityBootstrapFixture,
 } from "../src/index.js";
 
@@ -68,4 +70,38 @@ test("security runner cli executes the bootstrap fixture", () => {
   const report = JSON.parse(stdout);
   assert.equal(report.state, "alerted");
   assert.equal(report.safeFacts.alertCount, 1);
+});
+
+test("multi-identity grant proof preserves authority plane separation", () => {
+  const proof = buildMultiIdentityGrantProof(multiIdentityGrantFixture());
+  assert.equal(proof.state, "proved");
+  assert.equal(proof.checks.some((check) => check.check === "sync" && check.plane === "deliveryWitness"), true);
+  assert.equal(proof.checks.some((check) => check.check === "read" && check.plane === "accessAuthority"), true);
+  assert.equal(proof.checks.some((check) => check.check === "writeReduce" && check.plane === "actionAuthority"), true);
+  assert.equal(proof.checks.some((check) => check.check === "revokeExpire" && check.plane === "actionAuthority"), true);
+  assert.equal(proof.safeFacts.syncWithoutRead, true);
+  assert.equal(proof.safeFacts.readWithoutWrite, true);
+});
+
+test("multi-identity grant proof degrades when access epoch omits grantee", () => {
+  const fixture = multiIdentityGrantFixture();
+  const proof = buildMultiIdentityGrantProof({
+    ...fixture,
+    accessEpoch: {
+      ...fixture.accessEpoch,
+      memberRefs: ["member:logging:processor"],
+    },
+  });
+  assert.equal(proof.state, "degraded");
+  assert.equal(proof.blockedReasons.includes("granteeMissingFromAccessEpoch"), true);
+});
+
+test("security runner cli executes the multi-identity grant fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "multi-identity-grant"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const proof = JSON.parse(stdout);
+  assert.equal(proof.state, "proved");
+  assert.equal(proof.safeFacts.proofClass, "multiIdentityFullAccess");
 });

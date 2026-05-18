@@ -1,4 +1,10 @@
 import type {
+  AccessEpochRecord,
+  AccessGroupRecord,
+  ActionAuthorityExerciseRecord,
+  ActionAuthorityGrantRecord,
+  AuthorityMultiIdentityProofRecord,
+  AuthorityRootOperationRecord,
   RunnerOperationRecord,
   SecurityProcessorSeedRecord,
 } from "../../constitute-protocol/src/index.js";
@@ -46,4 +52,22 @@ export function securityBootstrapFixture(now?: number): {
   seed: SecurityProcessorSeedRecord;
   runnerOperation: RunnerOperationRecord;
   observedEvents: SecurityObservedEvent[];
+};
+
+export function buildMultiIdentityGrantProof(input: {
+  rootOperation?: AuthorityRootOperationRecord;
+  actionGrants?: ActionAuthorityGrantRecord[];
+  actionExercises?: ActionAuthorityExerciseRecord[];
+  accessGroup?: AccessGroupRecord;
+  accessEpoch?: AccessEpochRecord;
+  proof: AuthorityMultiIdentityProofRecord;
+}): AuthorityMultiIdentityProofRecord;
+
+export function multiIdentityGrantFixture(now?: number): {
+  rootOperation: AuthorityRootOperationRecord;
+  actionGrants: ActionAuthorityGrantRecord[];
+  actionExercises: ActionAuthorityExerciseRecord[];
+  accessGroup: AccessGroupRecord;
+  accessEpoch: AccessEpochRecord;
+  proof: AuthorityMultiIdentityProofRecord;
 };

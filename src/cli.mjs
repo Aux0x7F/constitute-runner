@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import {
+  buildMultiIdentityGrantProof,
   buildSecurityProcessorRun,
+  multiIdentityGrantFixture,
   securityBootstrapFixture,
 } from "./index.js";
 
@@ -20,7 +22,11 @@ const inputPath = argValue("--input");
 let input;
 
 if (fixture === "security-bootstrap") {
-  input = securityBootstrapFixture();
+  console.log(JSON.stringify(buildSecurityProcessorRun(securityBootstrapFixture()), null, 2));
+  process.exit(0);
+} else if (fixture === "multi-identity-grant") {
+  console.log(JSON.stringify(buildMultiIdentityGrantProof(multiIdentityGrantFixture()), null, 2));
+  process.exit(0);
 } else if (inputPath) {
   input = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 } else {

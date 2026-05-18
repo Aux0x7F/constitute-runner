@@ -1,7 +1,14 @@
 import {
+  AGREEMENT,
   RUNNER,
   SURFACE_APP,
   SWARM,
+  assertAccessEpoch,
+  assertAccessGroup,
+  assertActionAuthorityExercise,
+  assertActionAuthorityGrant,
+  assertAuthorityMultiIdentityProof,
+  assertAuthorityRootOperation,
   assertRunnerOperation,
   assertSecurityProcessorSeed,
 } from "../../constitute-protocol/src/index.js";
@@ -322,5 +329,229 @@ export function securityBootstrapFixture(now = nowSeconds()) {
         },
       },
     ],
+  };
+}
+
+export function buildMultiIdentityGrantProof(input = {}) {
+  const rootOperation = input.rootOperation ? assertAuthorityRootOperation(input.rootOperation) : null;
+  const actionGrants = asArray(input.actionGrants).map(assertActionAuthorityGrant);
+  const actionExercises = asArray(input.actionExercises).map(assertActionAuthorityExercise);
+  const accessGroup = input.accessGroup ? assertAccessGroup(input.accessGroup) : null;
+  const accessEpoch = input.accessEpoch ? assertAccessEpoch(input.accessEpoch) : null;
+  const proof = assertAuthorityMultiIdentityProof(input.proof);
+  const blockedReasons = new Set(asArray(proof.blockedReasons));
+
+  if (!rootOperation) blockedReasons.add("missingRootOperation");
+  if (rootOperation && rootOperation.state !== AGREEMENT.ACTION_GRANT_STATE.APPLIED) blockedReasons.add(`rootOperation:${rootOperation.state}`);
+  if (!actionGrants.some((grant) => grant.elevated === true && asArray(grant.rootRefs).length > 0)) blockedReasons.add("missingAdminGrant");
+  if (!actionGrants.some((grant) => grant.grantId.includes("full-access"))) blockedReasons.add("missingFullAccessGrant");
+  if (!accessGroup) blockedReasons.add("missingAccessGroup");
+  if (!accessEpoch) blockedReasons.add("missingAccessEpoch");
+  if (accessGroup && accessEpoch && accessGroup.currentEpochId !== accessEpoch.epochId) blockedReasons.add("accessEpochMismatch");
+  if (accessGroup && !asArray(accessGroup.memberRefs).includes(proof.granteeMemberRef)) blockedReasons.add("granteeMissingFromAccessGroup");
+  if (accessEpoch && !asArray(accessEpoch.memberRefs).includes(proof.granteeMemberRef)) blockedReasons.add("granteeMissingFromAccessEpoch");
+  const grantIds = new Set(actionGrants.map((grant) => grant.grantId));
+  for (const grantRef of proof.actionGrantRefs || []) {
+    if (!grantIds.has(grantRef)) blockedReasons.add(`missingGrant:${grantRef}`);
+  }
+  const exerciseGrantIds = new Set(actionExercises.map((exercise) => exercise.grantId));
+  if (!actionExercises.length) blockedReasons.add("missingActionExercise");
+  for (const grant of actionGrants) {
+    if (!exerciseGrantIds.has(grant.grantId) && grant.action !== "identity.fullAccess") {
+      blockedReasons.add(`missingExercise:${grant.grantId}`);
+    }
+  }
+
+  if (blockedReasons.size === 0) return proof;
+  return assertAuthorityMultiIdentityProof({
+    ...proof,
+    state: AGREEMENT.AUTHORITY_PROOF_STATE.DEGRADED,
+    blockedReasons: [...blockedReasons].sort(),
+  });
+}
+
+export function multiIdentityGrantFixture(now = nowSeconds()) {
+  const ownerIdentityRef = "identity:aux";
+  const granteeIdentityRef = "identity:agent-dev";
+  const granteeMemberRef = "member:agent-dev:cli";
+  const rootRef = "root:aux:primary";
+  const deviceRef = "device:aux:browser";
+  const rootOperation = assertAuthorityRootOperation({
+    kind: SWARM.RECORD_KIND.AUTHORITY_ROOT_OPERATION,
+    operationId: "root-op:aux:grant-agent-full-access",
+    operation: AGREEMENT.ROOT_OPERATION.REFRESH_ROOT,
+    identityRef: ownerIdentityRef,
+    actorRef: rootRef,
+    targetRef: deviceRef,
+    adminGrantRefs: ["grant:aux:root-admin"],
+    deviceRefs: [deviceRef],
+    notificationRefs: ["notification:agent-full-access"],
+    evidenceRefs: ["sig:root-op:aux:grant-agent-full-access"],
+    state: AGREEMENT.ACTION_GRANT_STATE.APPLIED,
+    safeFacts: { purpose: "agentFullAccessProof" },
+    issuedAt: now,
+    expiresAt: now + 3600,
+  });
+  const actionGrants = [
+    assertActionAuthorityGrant({
+      kind: SWARM.RECORD_KIND.AUTHORITY_ACTION_GRANT,
+      grantId: "grant:identity:agent-full-access",
+      issuerRef: ownerIdentityRef,
+      subjectRef: granteeMemberRef,
+      audienceRefs: [granteeIdentityRef],
+      authorityDomain: SWARM.AUTHORITY_DOMAIN.IDENTITY,
+      resourceRef: "identity:aux:contracts",
+      action: "identity.fullAccess",
+      state: AGREEMENT.ACTION_GRANT_STATE.ACCEPTED,
+      scope: {
+        inheritance: "full",
+        contracts: ["gateway", "logging", "nvr", "storage", "security"],
+      },
+      capabilityRefs: ["identity.grant.fullaccess"],
+      elevated: true,
+      rootRefs: [rootRef],
+      delegation: { allowed: true, maxDepth: 1, inheritedFrom: ["grant:aux:root-admin"] },
+      evidenceRefs: ["sig:grant:identity:agent-full-access"],
+      issuedAt: now + 1,
+      expiresAt: now + 3600,
+    }),
+    assertActionAuthorityGrant({
+      kind: SWARM.RECORD_KIND.AUTHORITY_ACTION_GRANT,
+      grantId: "grant:logging:agent-writer",
+      issuerRef: ownerIdentityRef,
+      subjectRef: granteeMemberRef,
+      audienceRefs: ["service:logging"],
+      authorityDomain: SWARM.AUTHORITY_DOMAIN.SERVICE,
+      resourceRef: "contract:logging.default",
+      action: "logging.event.write",
+      state: AGREEMENT.ACTION_GRANT_STATE.ACCEPTED,
+      scope: { contractRef: "contract:logging.default", reduce: true },
+      capabilityRefs: ["logging.events.observe"],
+      parentGrantRefs: ["grant:identity:agent-full-access"],
+      evidenceRefs: ["sig:grant:logging:agent-writer"],
+      issuedAt: now + 2,
+      expiresAt: now + 3600,
+    }),
+  ];
+  const actionExercises = [
+    assertActionAuthorityExercise({
+      kind: SWARM.RECORD_KIND.AUTHORITY_ACTION_EXERCISE,
+      exerciseId: "exercise:logging:agent-writer:1",
+      grantId: "grant:logging:agent-writer",
+      actorRef: granteeMemberRef,
+      subjectRef: "event:logging:agent-test",
+      resourceRef: "contract:logging.default",
+      action: "logging.event.write",
+      state: AGREEMENT.ACTION_GRANT_STATE.APPLIED,
+      evidenceRefs: ["event:logging:agent-test"],
+      resultRefs: ["projection:logging.events"],
+      safeFacts: { exerciseClass: "writeReduce" },
+      issuedAt: now + 3,
+      observedAt: now + 4,
+    }),
+  ];
+  const accessGroup = assertAccessGroup({
+    kind: SWARM.RECORD_KIND.ACCESS_GROUP,
+    groupId: "access-group:identity:aux:security-events",
+    ownerRef: ownerIdentityRef,
+    subjectRef: "event-fabric:logging.default",
+    contentClasses: [AGREEMENT.CONTENT_CLASS.ENCRYPTED_DETAIL, AGREEMENT.CONTENT_CLASS.SAFE_INDEX],
+    memberRefs: ["member:logging:processor", granteeMemberRef],
+    adminRefs: [rootRef],
+    currentEpochId: "access-epoch:identity:aux:security-events:3",
+    partitionRefs: ["partition:event-fabric:logging-security"],
+    policyRefs: ["policy:identity:agent-full-access"],
+    safeFacts: { purpose: "securityReplay" },
+    issuedAt: now + 5,
+  });
+  const accessEpoch = assertAccessEpoch({
+    kind: SWARM.RECORD_KIND.ACCESS_EPOCH,
+    epochId: accessGroup.currentEpochId,
+    groupId: accessGroup.groupId,
+    sequence: 3,
+    changeKind: AGREEMENT.ACCESS_EPOCH_CHANGE.ADD_MEMBER,
+    previousEpochId: "access-epoch:identity:aux:security-events:2",
+    memberRefs: accessGroup.memberRefs,
+    addedMemberRefs: [granteeMemberRef],
+    partitionRefs: accessGroup.partitionRefs,
+    keyRef: "key-ref:identity:aux:security-events:3",
+    proofRefs: ["proof:caac-open:agent-dev"],
+    safeFacts: { change: "agentAccess" },
+    issuedAt: now + 6,
+    expiresAt: now + 3600,
+  });
+  const proof = assertAuthorityMultiIdentityProof({
+    kind: SWARM.RECORD_KIND.AUTHORITY_MULTI_IDENTITY_PROOF,
+    proofId: "authority-proof:aux-to-agent:full-access",
+    ownerIdentityRef,
+    granteeIdentityRef,
+    granteeMemberRef,
+    subjectRefs: [
+      "contract:gateway.default",
+      "contract:logging.default",
+      "contract:nvr.streams",
+      "contract:storage.default",
+      "contract:security.default",
+    ],
+    actionGrantRefs: actionGrants.map((grant) => grant.grantId),
+    accessGroupRefs: [accessGroup.groupId],
+    accessEpochRefs: [accessEpoch.epochId],
+    privateEnvelopeRefs: ["private-envelope:logging-event:sample"],
+    revocationRefs: ["revocation:grant:identity:agent-full-access"],
+    checks: [
+      {
+        check: AGREEMENT.AUTHORITY_PROOF_CHECK.SYNC,
+        plane: AGREEMENT.PLANE.DELIVERY_WITNESS,
+        state: AGREEMENT.AUTHORITY_PROOF_STATE.PROVED,
+        targetRef: "contract:gateway.default",
+        grantRefs: ["grant:identity:agent-full-access"],
+        evidenceRefs: ["witness:gateway:agent-sync"],
+      },
+      {
+        check: AGREEMENT.AUTHORITY_PROOF_CHECK.READ,
+        plane: AGREEMENT.PLANE.ACCESS_AUTHORITY,
+        state: AGREEMENT.AUTHORITY_PROOF_STATE.PROVED,
+        targetRef: "event-fabric:logging.default",
+        accessGroupRefs: [accessGroup.groupId],
+        accessEpochRefs: [accessEpoch.epochId],
+        evidenceRefs: ["proof:caac-open:agent-dev"],
+      },
+      {
+        check: AGREEMENT.AUTHORITY_PROOF_CHECK.WRITE_REDUCE,
+        plane: AGREEMENT.PLANE.ACTION_AUTHORITY,
+        state: AGREEMENT.AUTHORITY_PROOF_STATE.PROVED,
+        targetRef: "contract:logging.default",
+        grantRefs: ["grant:logging:agent-writer"],
+        exerciseRefs: ["exercise:logging:agent-writer:1"],
+        evidenceRefs: ["event:logging:agent-test"],
+      },
+      {
+        check: AGREEMENT.AUTHORITY_PROOF_CHECK.REVOKE_EXPIRE,
+        plane: AGREEMENT.PLANE.ACTION_AUTHORITY,
+        state: AGREEMENT.AUTHORITY_PROOF_STATE.PROVED,
+        targetRef: "grant:identity:agent-full-access",
+        grantRefs: ["grant:identity:agent-full-access"],
+        evidenceRefs: ["revocation:grant:identity:agent-full-access"],
+        expiresAt: now + 3600,
+      },
+    ],
+    state: AGREEMENT.AUTHORITY_PROOF_STATE.PROVED,
+    evidenceRefs: ["proof:multi-identity:agent-dev"],
+    safeFacts: {
+      proofClass: "multiIdentityFullAccess",
+      grantee: "agent-dev",
+      syncWithoutRead: true,
+      readWithoutWrite: true,
+    },
+    issuedAt: now + 7,
+    expiresAt: now + 3600,
+  });
+  return {
+    rootOperation,
+    actionGrants,
+    actionExercises,
+    accessGroup,
+    accessEpoch,
+    proof,
   };
 }
