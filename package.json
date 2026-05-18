@@ -1,0 +1,20 @@
+{
+  "name": "constitute-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/index.d.ts",
+  "bin": {
+    "constitute-runner": "./src/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "node --test tests/**/*.test.js"
+  }
+}
