@@ -5,10 +5,12 @@ import {
   appRunnerFulfillmentFixture,
   assertAppRunnerFulfillmentLifecycle,
   assertAppRunnerFulfillmentReport,
+  assertRunnerHostPosture,
   buildMultiIdentityGrantProof,
   assertSecurityProcessorRunReport,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
+  buildRunnerHostFulfillmentPosture,
   buildSecurityProcessorRun,
   multiIdentityGrantFixture,
   securityAppContractFixture,
@@ -144,7 +146,21 @@ test("security runner cli executes the multi-identity grant fixture", () => {
 });
 
 test("app runner fulfillment reports executed app contract posture", () => {
-  const report = buildAppRunnerFulfillment(appRunnerFulfillmentFixture());
+  const fixture = appRunnerFulfillmentFixture();
+  const hostPosture = buildRunnerHostFulfillmentPosture({
+    ...fixture,
+    serviceRefs: ["app:runner-proof"],
+    witnessRefs: ["witness:operator:host-proof"],
+  });
+  assert.equal(hostPosture.kind, "runner.host.fulfillment.posture");
+  assert.equal(hostPosture.state, "succeeded");
+  assert.equal(hostPosture.safeFacts.serviceHostIdentitySeparated, true);
+  assertRunnerHostPosture(hostPosture);
+
+  const report = buildAppRunnerFulfillment({
+    ...fixture,
+    hostFulfillmentPosture: hostPosture,
+  });
   assert.equal(report.kind, "app.runner.fulfillment.report");
   assert.equal(report.state, "succeeded");
   assert.equal(report.appId, "constitute-runner-proof");
@@ -152,6 +168,7 @@ test("app runner fulfillment reports executed app contract posture", () => {
   assert.equal(report.sourceMode, "bundled");
   assert.deepEqual(report.sourceRefs, ["bundle:runner-proof@0.1.0"]);
   assert.equal(report.operationPosture.accepted, true);
+  assert.equal(report.hostFulfillmentPosture.hostRef, "host:lab-gateway");
   assert.equal(report.fulfillmentPosture.outputRefs.includes("artifact:runner-proof:dist"), true);
   assert.equal(report.fulfillmentPosture.releaseRefs.includes("release:runner-proof"), true);
   assert.deepEqual(report.blockedReasons, []);
@@ -191,6 +208,7 @@ test("app runner fulfillment blocks expired operation posture", () => {
   });
   assert.equal(report.state, "blocked");
   assert.equal(report.blockedReasons.includes("runnerOperationExpired"), true);
+  assert.equal(report.blockedReasons.includes("host:runnerOperationExpired"), true);
 });
 
 test("app runner fulfillment rejects unsafe safe-fact leakage", () => {

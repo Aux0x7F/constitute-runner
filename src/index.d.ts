@@ -7,13 +7,14 @@ import type {
   AppRunnerFulfillmentReport,
   AuthorityMultiIdentityProofRecord,
   AuthorityRootOperationRecord,
+  RunnerHostFulfillmentPosture,
   RunnerOperationRecord,
   SecurityProcessorSeedRecord,
   SurfaceAppContract,
   SurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
-export type { AppRunnerFulfillmentLifecycle, AppRunnerFulfillmentReport } from "../../constitute-protocol/src/index.js";
+export type { AppRunnerFulfillmentLifecycle, AppRunnerFulfillmentReport, RunnerHostFulfillmentPosture } from "../../constitute-protocol/src/index.js";
 
 export type SecurityObservedEvent = {
   eventRef?: string;
@@ -71,11 +72,23 @@ export function buildAppRunnerFulfillment(input: {
   appContract: SurfaceAppContract;
   manifest: SurfaceAppManifest;
   runnerOperation: RunnerOperationRecord;
+  hostFulfillmentPosture?: RunnerHostFulfillmentPosture;
   now?: number;
   reportId?: string;
 }): AppRunnerFulfillmentReport;
 
 export function assertAppRunnerFulfillmentReport(record: unknown): AppRunnerFulfillmentReport;
+export function buildRunnerHostFulfillmentPosture(input: {
+  runnerOperation: RunnerOperationRecord;
+  serviceRefs?: string[];
+  contractRefs?: string[];
+  evidenceRefs?: string[];
+  witnessRefs?: string[];
+  blockedReasons?: string[];
+  now?: number;
+  postureId?: string;
+}): RunnerHostFulfillmentPosture;
+export function assertRunnerHostPosture(record: unknown): RunnerHostFulfillmentPosture;
 export function buildAppRunnerFulfillmentLifecycle(input: {
   appContract?: SurfaceAppContract;
   manifest?: SurfaceAppManifest;

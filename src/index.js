@@ -12,6 +12,7 @@ import {
   assertAuthorityMultiIdentityProof,
   assertAuthorityRootOperation,
   assertRunnerOperation,
+  assertRunnerHostFulfillmentPosture,
   assertSecurityProcessorSeed,
   assertSurfaceAppContract,
   assertSurfaceAppManifest,
@@ -143,10 +144,87 @@ function normalizedAppOperationState(runnerOperation, blockedReasons) {
   return runnerOperation.state || "unknown";
 }
 
+function normalizedHostFulfillmentState(runnerOperation, blockedReasons) {
+  if (blockedReasons.length) return RUNNER.HOST_FULFILLMENT_STATE.BLOCKED;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.REJECTED) return RUNNER.HOST_FULFILLMENT_STATE.REJECTED;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.CANCELLED) return RUNNER.HOST_FULFILLMENT_STATE.CANCELLED;
+  if (runnerOperation.operation === RUNNER.OPERATION.RELEASE || runnerOperation.state === RUNNER.OPERATION_STATE.RELEASED) return RUNNER.HOST_FULFILLMENT_STATE.RELEASED;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.SUCCEEDED) return RUNNER.HOST_FULFILLMENT_STATE.SUCCEEDED;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.RUNNING) return RUNNER.HOST_FULFILLMENT_STATE.RUNNING;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.ACCEPTED || runnerOperation.state === RUNNER.OPERATION_STATE.REQUESTED) return RUNNER.HOST_FULFILLMENT_STATE.ACCEPTED;
+  if (runnerOperation.state === RUNNER.OPERATION_STATE.FAILED || runnerOperation.state === RUNNER.OPERATION_STATE.BLOCKED) return RUNNER.HOST_FULFILLMENT_STATE.BLOCKED;
+  return RUNNER.HOST_FULFILLMENT_STATE.DEGRADED;
+}
+
+export function buildRunnerHostFulfillmentPosture(input = {}) {
+  const runnerOperation = assertRunnerOperation(input.runnerOperation);
+  const observedAt = Number(input.now || runnerOperation.observedAt || 0) || nowSeconds();
+  const operationExpiresAt = Number(runnerOperation.expiresAt || 0) || 0;
+  const blockedReasons = unique([
+    ...asArray(input.blockedReasons),
+    ...(TERMINAL_BLOCKED_STATES.has(runnerOperation.state) ? [`runnerOperation:${runnerOperation.state}`] : []),
+    ...(runnerOperation.expiresAt !== undefined && Number(runnerOperation.expiresAt || 0) <= observedAt ? ["runnerOperationExpired"] : []),
+    ...(!runnerOperation.hostRef ? ["missingHostRef"] : []),
+  ]);
+  const state = normalizedHostFulfillmentState(runnerOperation, blockedReasons);
+  const posture = {
+    kind: SWARM.RECORD_KIND.RUNNER_HOST_FULFILLMENT_POSTURE,
+    postureId: String(input.postureId || `runner-host:${runnerOperation.runnerId}:${runnerOperation.operationId}`),
+    runnerId: runnerOperation.runnerId,
+    runnerRef: runnerOperation.runnerRef,
+    hostRef: runnerOperation.hostRef,
+    operationId: runnerOperation.operationId,
+    operation: runnerOperation.operation,
+    state,
+    requesterRef: runnerOperation.requesterRef,
+    subjectRef: runnerOperation.subjectRef,
+    contractRef: runnerOperation.contractRef,
+    serviceRefs: unique(asArray(input.serviceRefs)),
+    contractRefs: unique([runnerOperation.contractRef, ...asArray(input.contractRefs)]),
+    grantRefs: unique(runnerOperation.grantRefs),
+    capabilityRefs: unique(runnerOperation.capabilityRefs),
+    inputRefs: unique(runnerOperation.inputRefs),
+    outputRefs: unique(runnerOperation.outputRefs),
+    evidenceRefs: unique([
+      ...asArray(runnerOperation.evidenceRefs),
+      ...(state === RUNNER.HOST_FULFILLMENT_STATE.ACCEPTED ? ["evidence:runner-host:accepted"] : []),
+      ...(state === RUNNER.HOST_FULFILLMENT_STATE.SUCCEEDED ? ["evidence:runner-host:completed"] : []),
+      ...asArray(input.evidenceRefs),
+    ]),
+    proofRefs: unique(runnerOperation.proofRefs),
+    releaseRefs: unique(runnerOperation.releaseRefs),
+    witnessRefs: unique(asArray(input.witnessRefs)),
+    resourceBudget: runnerOperation.resourceBudget,
+    resourcePosture: runnerOperation.resourcePosture || null,
+    secretBoundary: runnerOperation.secretBoundary || { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture: runnerOperation.releasePosture || null,
+    rollbackPosture: runnerOperation.rollbackPosture || null,
+    safeFacts: {
+      hostRef: runnerOperation.hostRef,
+      contractRef: runnerOperation.contractRef,
+      serviceHostIdentitySeparated: runnerOperation.hostRef !== runnerOperation.contractRef,
+      operation: runnerOperation.operation,
+    },
+    blockedReasons,
+    observedAt,
+    ...(operationExpiresAt > observedAt ? { expiresAt: operationExpiresAt } : {}),
+  };
+  if (runnerOperation.releaseRef) posture.releaseRef = runnerOperation.releaseRef;
+  if (runnerOperation.rollbackRef) posture.rollbackRef = runnerOperation.rollbackRef;
+  return assertRunnerHostFulfillmentPosture(posture);
+}
+
+export function assertRunnerHostPosture(record) {
+  return assertRunnerHostFulfillmentPosture(record);
+}
+
 export function buildAppRunnerFulfillment(input = {}) {
   const runnerOperation = assertRunnerOperation(input.runnerOperation);
   const appContract = input.appContract ? assertSurfaceAppContract(input.appContract) : null;
   const manifest = input.manifest ? assertSurfaceAppManifest(input.manifest) : null;
+  const hostFulfillmentPosture = input.hostFulfillmentPosture
+    ? assertRunnerHostFulfillmentPosture(input.hostFulfillmentPosture)
+    : buildRunnerHostFulfillmentPosture(input);
   const observedAt = Number(input.now || runnerOperation.observedAt || 0) || nowSeconds();
   const operationExpiresAt = Number(runnerOperation.expiresAt || 0) || 0;
   const refs = appContractRefUniverse(appContract, manifest);
@@ -163,6 +241,9 @@ export function buildAppRunnerFulfillment(input = {}) {
   if (runnerOperation.secretBoundary?.state === SURFACE_APP.SECRET_BOUNDARY.BLOCKED) blockedReasons.push("secretBoundaryBlocked");
   if (runnerOperation.releasePosture?.state === SURFACE_APP.RELEASE_POSTURE.BLOCKED) blockedReasons.push("releasePostureBlocked");
   if (runnerOperation.rollbackPosture?.state === SURFACE_APP.RELEASE_POSTURE.BLOCKED) blockedReasons.push("rollbackPostureBlocked");
+  if (["blocked", "rejected", "cancelled"].includes(hostFulfillmentPosture.state)) {
+    blockedReasons.push(...asArray(hostFulfillmentPosture.blockedReasons).map((reason) => `host:${reason}`));
+  }
   const state = normalizedAppOperationState(runnerOperation, unique(blockedReasons));
   const report = {
     kind: APP_RUNNER_FULFILLMENT_KIND,
@@ -194,6 +275,7 @@ export function buildAppRunnerFulfillment(input = {}) {
     secretBoundary: runnerOperation.secretBoundary || { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
     releasePosture: runnerOperation.releasePosture || null,
     rollbackPosture: runnerOperation.rollbackPosture || null,
+    hostFulfillmentPosture,
     releaseRef: runnerOperation.releaseRef || "",
     rollbackRef: runnerOperation.rollbackRef || "",
     operationPosture: {
