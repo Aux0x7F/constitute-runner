@@ -115,6 +115,8 @@ test("app runner fulfillment reports executed app contract posture", () => {
   assert.equal(report.state, "succeeded");
   assert.equal(report.appId, "constitute-runner-proof");
   assert.equal(report.version, "0.1.0");
+  assert.equal(report.sourceMode, "bundled");
+  assert.deepEqual(report.sourceRefs, ["bundle:runner-proof@0.1.0"]);
   assert.equal(report.operationPosture.accepted, true);
   assert.equal(report.fulfillmentPosture.outputRefs.includes("artifact:runner-proof:dist"), true);
   assert.equal(report.fulfillmentPosture.releaseRefs.includes("release:runner-proof"), true);
@@ -155,7 +157,7 @@ test("app runner fulfillment rejects unsafe safe-fact leakage", () => {
       ...report.safeFacts,
       token: "must-not-copy",
     },
-  }), /unsafe key token/);
+  }), /unsafe (safe fact )?key:? token/);
 });
 
 test("runner cli executes the app fulfillment fixture", () => {

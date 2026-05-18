@@ -7,6 +7,7 @@ import {
   assertAccessGroup,
   assertActionAuthorityExercise,
   assertActionAuthorityGrant,
+  assertAppRunnerFulfillmentReport as assertProtocolAppRunnerFulfillmentReport,
   assertAuthorityMultiIdentityProof,
   assertAuthorityRootOperation,
   assertRunnerOperation,
@@ -16,7 +17,7 @@ import {
 } from "../../constitute-protocol/src/index.js";
 
 export const SECURITY_RUN_KIND = "security.processor.run.report";
-export const APP_RUNNER_FULFILLMENT_KIND = "app.runner.fulfillment.report";
+export const APP_RUNNER_FULFILLMENT_KIND = SWARM.RECORD_KIND.APP_RUNNER_FULFILLMENT_REPORT;
 
 const ALERT_SEVERITIES = new Set(["critical", "error", "warn"]);
 const TERMINAL_BLOCKED_STATES = new Set([
@@ -117,6 +118,15 @@ function appContractRefUniverse(appContract, manifest) {
   ]);
 }
 
+function manifestSourceRefs(manifest) {
+  const sourceMode = String(manifest?.defaultSourceMode || SURFACE_APP.FULFILLMENT_MODE.BUNDLED).trim();
+  const version = asArray(manifest?.versions).find((entry) => entry?.version === manifest?.currentVersion) || {};
+  const bundled = asArray(version.bundledSourceRefs).length ? version.bundledSourceRefs : manifest?.bundledSourceRefs;
+  const remote = asArray(version.remoteSourceRefs).length ? version.remoteSourceRefs : manifest?.remoteSourceRefs;
+  if (sourceMode === SURFACE_APP.FULFILLMENT_MODE.BUNDLED) return unique(asArray(bundled));
+  return unique(asArray(remote));
+}
+
 function normalizedAppOperationState(runnerOperation, blockedReasons) {
   if (blockedReasons.length) return "blocked";
   if (runnerOperation.state === RUNNER.OPERATION_STATE.REJECTED) return "rejected";
@@ -136,7 +146,10 @@ export function buildAppRunnerFulfillment(input = {}) {
   const appContract = input.appContract ? assertSurfaceAppContract(input.appContract) : null;
   const manifest = input.manifest ? assertSurfaceAppManifest(input.manifest) : null;
   const observedAt = Number(input.now || runnerOperation.observedAt || 0) || nowSeconds();
+  const operationExpiresAt = Number(runnerOperation.expiresAt || 0) || 0;
   const refs = appContractRefUniverse(appContract, manifest);
+  const sourceMode = String(manifest?.defaultSourceMode || SURFACE_APP.FULFILLMENT_MODE.BUNDLED).trim();
+  const sourceRefs = manifest ? manifestSourceRefs(manifest) : [];
   const blockedReasons = [];
   if (!appContract) blockedReasons.push("missingAppContract");
   if (!manifest) blockedReasons.push("missingAppManifest");
@@ -165,6 +178,8 @@ export function buildAppRunnerFulfillment(input = {}) {
     appId: String(appContract?.appId || manifest?.appId || ""),
     version: String(appContract?.version || manifest?.currentVersion || ""),
     manifestRef: String(manifest?.manifestId || ""),
+    sourceMode,
+    sourceRefs,
     grantRefs: unique(runnerOperation.grantRefs),
     capabilityRefs: unique(runnerOperation.capabilityRefs),
     inputRefs: unique(runnerOperation.inputRefs),
@@ -200,7 +215,8 @@ export function buildAppRunnerFulfillment(input = {}) {
     safeFacts: {
       appId: String(appContract?.appId || manifest?.appId || ""),
       version: String(appContract?.version || manifest?.currentVersion || ""),
-      sourceMode: String(manifest?.defaultSourceMode || "bundled"),
+      sourceMode,
+      sourceRefCount: sourceRefs.length,
       moduleRoleCount: asArray(appContract?.requiredModuleRoles).length,
       outputRefCount: asArray(runnerOperation.outputRefs).length,
       releaseRefCount: asArray(runnerOperation.releaseRefs).length,
@@ -208,32 +224,13 @@ export function buildAppRunnerFulfillment(input = {}) {
     },
     blockedReasons: unique(blockedReasons),
     observedAt,
-    expiresAt: runnerOperation.expiresAt,
+    ...(operationExpiresAt > observedAt ? { expiresAt: operationExpiresAt } : {}),
   };
   return assertAppRunnerFulfillmentReport(report);
 }
 
 export function assertAppRunnerFulfillmentReport(record) {
-  if (!record || typeof record !== "object" || Array.isArray(record)) throw new Error("app runner fulfillment report must be an object");
-  if (record.kind !== APP_RUNNER_FULFILLMENT_KIND) throw new Error("invalid app runner fulfillment report kind");
-  for (const field of ["reportId", "runnerId", "runnerRef", "hostRef", "runnerOperationId", "operation", "state", "requesterRef", "subjectRef", "contractRef"]) {
-    if (!String(record[field] || "").trim()) throw new Error(`app runner fulfillment report missing ${field}`);
-  }
-  if (!["requested", "accepted", "running", "succeeded", "released", "rolledBack", "blocked", "failed", "rejected", "cancelled"].includes(record.state)) {
-    throw new Error("invalid app runner fulfillment state");
-  }
-  for (const field of ["grantRefs", "inputRefs", "outputRefs", "evidenceRefs", "proofRefs", "releaseRefs", "blockedReasons"]) {
-    if (!Array.isArray(record[field])) throw new Error(`app runner fulfillment report ${field} must be an array`);
-  }
-  for (const field of ["resourceBudget", "secretBoundary", "operationPosture", "fulfillmentPosture", "safeFacts"]) {
-    if (!record[field] || typeof record[field] !== "object" || Array.isArray(record[field])) throw new Error(`app runner fulfillment report ${field} must be an object`);
-  }
-  if (["blocked", "failed", "rejected", "cancelled"].includes(record.state) && record.blockedReasons.length === 0) {
-    throw new Error("blocked app runner fulfillment requires blockedReasons");
-  }
-  rejectUnsafeSafeFacts(record.safeFacts, "app runner fulfillment report");
-  if (!Number(record.observedAt || 0)) throw new Error("app runner fulfillment report missing observedAt");
-  return record;
+  return assertProtocolAppRunnerFulfillmentReport(record);
 }
 
 export function appRunnerFulfillmentFixture(now = nowSeconds()) {
