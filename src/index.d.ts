@@ -9,64 +9,11 @@ import type {
   AuthorityRootOperationRecord,
   RunnerHostFulfillmentPosture,
   RunnerOperationRecord,
-  CybersecProcessorSeedRecord,
   SurfaceAppContract,
   SurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
 export type { AppRunnerFulfillmentLifecycle, AppRunnerFulfillmentReport, RunnerHostFulfillmentPosture } from "../../constitute-protocol/src/index.js";
-
-export type CybersecObservedEvent = {
-  eventRef?: string;
-  eventId?: string;
-  evidenceRef?: string;
-  eventClass?: string;
-  severity?: string;
-  observedAt?: number;
-  safeFacts?: Record<string, unknown>;
-};
-
-export type CybersecProcessorRunReport = {
-  kind: "cybersec.processor.run.report";
-  reportId: string;
-  seedId: string;
-  processorRef: string;
-  processorRoleRef: string;
-  fabricRef: string;
-  runnerOperationId: string;
-  state: "clear" | "alerted" | "blocked" | "degraded";
-  alertPosture: Record<string, unknown>;
-  evidenceHoldPosture: Record<string, unknown>;
-  accessPosture: Record<string, unknown>;
-  materializationPosture: Record<string, unknown>;
-  semanticBoundaries: Record<string, unknown>;
-  safeFacts: Record<string, unknown>;
-  evidenceRefs: string[];
-  blockedReasons: string[];
-  observedAt: number;
-  expiresAt?: number;
-};
-
-export function buildCybersecProcessorRun(input: {
-  seed: CybersecProcessorSeedRecord;
-  runnerOperation: RunnerOperationRecord;
-  observedEvents?: CybersecObservedEvent[];
-  now?: number;
-}): CybersecProcessorRunReport;
-
-export function assertCybersecProcessorRunReport(record: unknown): CybersecProcessorRunReport;
-export function cybersecBootstrapFixture(now?: number): {
-  seed: CybersecProcessorSeedRecord;
-  runnerOperation: RunnerOperationRecord;
-  observedEvents: CybersecObservedEvent[];
-};
-
-export function cybersecAppContractFixture(now?: number): {
-  appContract: SurfaceAppContract;
-  manifest: SurfaceAppManifest;
-  seed: CybersecProcessorSeedRecord;
-  runnerOperation: RunnerOperationRecord;
-};
 
 export function buildAppRunnerFulfillment(input: {
   appContract: SurfaceAppContract;
