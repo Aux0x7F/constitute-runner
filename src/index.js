@@ -13,12 +13,12 @@ import {
   assertAuthorityRootOperation,
   assertRunnerOperation,
   assertRunnerHostFulfillmentPosture,
-  assertSecurityProcessorSeed,
+  assertCybersecProcessorSeed,
   assertSurfaceAppContract,
   assertSurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
-export const SECURITY_RUN_KIND = "security.processor.run.report";
+export const CYBERSEC_RUN_KIND = "cybersec.processor.run.report";
 export const APP_RUNNER_FULFILLMENT_KIND = SWARM.RECORD_KIND.APP_RUNNER_FULFILLMENT_REPORT;
 export const APP_RUNNER_FULFILLMENT_LIFECYCLE_KIND = SWARM.RECORD_KIND.APP_RUNNER_FULFILLMENT_LIFECYCLE;
 
@@ -497,26 +497,26 @@ export function appRunnerFulfillmentFixture(now = nowSeconds()) {
   return { appContract, manifest, runnerOperation };
 }
 
-export function securityAppContractFixture(now = nowSeconds()) {
-  const security = securityBootstrapFixture(now);
-  const seed = security.seed;
+export function cybersecAppContractFixture(now = nowSeconds()) {
+  const cybersec = cybersecBootstrapFixture(now);
+  const seed = cybersec.seed;
   const appContract = assertSurfaceAppContract({
-    contractId: "surface-app:constitute-security@0.1.0",
+    contractId: "surface-app:constitute-cybersec@0.1.0",
     schemaVersion: SURFACE_APP.SCHEMA_VERSION,
-    appId: "constitute-security",
-    appRef: "app:constitute-security",
+    appId: "constitute-cybersec",
+    appRef: "app:constitute-cybersec",
     version: "0.1.0",
-    displayName: "Constitute Security",
+    displayName: "Constitute Cybersecurity",
     requiredPrimitives: [
       "runtime.attach",
       "event.fabric.processor.contract",
-      "security.processor.seed",
+      "cybersec.processor.seed",
       "surface.app.authority.access.posture",
     ],
     rootRefs: ["root:aux:primary"],
     deviceRefs: ["device:aux:browser"],
-    grantRefs: ["grant:app:constitute-security:run"],
-    authorityRefs: ["authority:security.bootstrap"],
+    grantRefs: ["grant:app:constitute-cybersec:run"],
+    authorityRefs: ["authority:cybersec.bootstrap"],
     accessGroupRefs: seed.accessGroupRefs,
     requiredContentClasses: seed.inputContentClasses,
     requiredModuleRoles: [
@@ -536,31 +536,31 @@ export function securityAppContractFixture(now = nowSeconds()) {
         issuedAt: now,
       },
       {
-        moduleRef: "constitute-security/event-projection-model@0.1.0",
+        moduleRef: "constitute-cybersec/event-projection-model@0.1.0",
         role: SURFACE_APP.MODULE_ROLE.PROJECTION_MODEL,
         participantSide: SURFACE_APP.PARTICIPANT_SIDE.WINDOW,
         fulfillmentMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
         version: "0.1.0",
         primitiveRefs: ["event.fabric.processor.contract", "materialization.budget"],
         inputs: seed.inputAccessClassRefs,
-        outputs: ["security.alerts.readModel", "security.evidenceHold.readModel"],
+        outputs: ["cybersec.alerts.readModel", "cybersec.evidenceHold.readModel"],
         issuedAt: now,
       },
       {
-        moduleRef: "constitute-security/product-view@0.1.0",
+        moduleRef: "constitute-cybersec/product-view@0.1.0",
         role: SURFACE_APP.MODULE_ROLE.PRODUCT_VIEW,
         participantSide: SURFACE_APP.PARTICIPANT_SIDE.WINDOW,
         fulfillmentMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
         version: "0.1.0",
         primitiveRefs: ["runtime.posture.render"],
-        inputs: ["security.alerts.readModel", "security.evidenceHold.readModel"],
-        outputs: ["security.intent"],
+        inputs: ["cybersec.alerts.readModel", "cybersec.evidenceHold.readModel"],
+        outputs: ["cybersec.intent"],
         issuedAt: now,
       },
     ],
     projectionSubscriptions: [
       {
-        projectionId: "security.event-fabric",
+        projectionId: "cybersec.event-fabric",
         channelId: seed.fabricRef,
         processorRoleRef: seed.processorRoleRef,
         inputAccessClassRefs: seed.inputAccessClassRefs,
@@ -572,8 +572,8 @@ export function securityAppContractFixture(now = nowSeconds()) {
     permissionRequirements: [
       {
         plane: AGREEMENT.PLANE.ACTION_AUTHORITY,
-        grantRefs: ["grant:app:constitute-security:run"],
-        actions: ["security.processor.run"],
+        grantRefs: ["grant:app:constitute-cybersec:run"],
+        actions: ["cybersec.processor.run"],
       },
       {
         plane: AGREEMENT.PLANE.ACCESS_AUTHORITY,
@@ -588,16 +588,16 @@ export function securityAppContractFixture(now = nowSeconds()) {
         inputAccessClassRefs: seed.inputAccessClassRefs,
       },
       {
-        capabilityRef: "security.processor.run",
+        capabilityRef: "cybersec.processor.run",
         seedRef: seed.seedId,
       },
     ],
     materializationBudgets: [
       {
         kind: SWARM.RECORD_KIND.MATERIALIZATION_BUDGET,
-        budgetId: "security.encrypted-detail.refs",
+        budgetId: "cybersec.encrypted-detail.refs",
         sourceAuthority: seed.fabricRef,
-        consumerRef: "constitute-security",
+        consumerRef: "constitute-cybersec",
         payloadClass: SWARM.MATERIALIZATION_PAYLOAD_CLASS.RETAINED_RAW,
         copyRole: SWARM.MATERIALIZATION_COPY_ROLE.REFERENCE_ONLY,
         transferMode: SWARM.MATERIALIZATION_TRANSFER_MODE.REFERENCE_ONLY,
@@ -608,15 +608,15 @@ export function securityAppContractFixture(now = nowSeconds()) {
         deltaPolicy: { mode: "eventTimeOrdered" },
         coalescing: { key: "detailRef" },
         cardinality: { maxEventClasses: 16, maxDetailRefs: 500 },
-        schema: { state: SWARM.MATERIALIZATION_SCHEMA_STATE.CURRENT, version: "security.detailRefs.v1" },
+        schema: { state: SWARM.MATERIALIZATION_SCHEMA_STATE.CURRENT, version: "cybersec.detailRefs.v1" },
         referenceRefs: seed.detailRefs,
         issuedAt: now,
       },
       {
         kind: SWARM.RECORD_KIND.MATERIALIZATION_BUDGET,
-        budgetId: "security.alerts.ui",
+        budgetId: "cybersec.alerts.ui",
         sourceAuthority: seed.fabricRef,
-        consumerRef: "constitute-security",
+        consumerRef: "constitute-cybersec",
         payloadClass: SWARM.MATERIALIZATION_PAYLOAD_CLASS.PROJECTION,
         copyRole: SWARM.MATERIALIZATION_COPY_ROLE.PROJECTION,
         transferMode: SWARM.MATERIALIZATION_TRANSFER_MODE.CLONE,
@@ -627,51 +627,51 @@ export function securityAppContractFixture(now = nowSeconds()) {
         deltaPolicy: { mode: "coalesced", key: "alertRef" },
         coalescing: { key: "alertRef" },
         cardinality: { maxAlertRefs: 100, maxSeverityLabels: 8 },
-        schema: { state: SWARM.MATERIALIZATION_SCHEMA_STATE.CURRENT, version: "security.alerts.v1" },
+        schema: { state: SWARM.MATERIALIZATION_SCHEMA_STATE.CURRENT, version: "cybersec.alerts.v1" },
         issuedAt: now,
       },
     ],
     serviceManagerPosture: {
-      managerId: "manager:constitute-security",
-      subjectRef: "app:constitute-security",
-      managerRef: "runner:lab-gateway:security-bootstrap",
+      managerId: "manager:constitute-cybersec",
+      subjectRef: "app:constitute-cybersec",
+      managerRef: "runner:lab-gateway:cybersec-bootstrap",
       state: SURFACE_APP.SERVICE_MANAGER_POSTURE.MANUAL,
-      serviceRefs: ["app:constitute-security"],
-      capabilityRefs: ["security.processor.run", "event.fabric.observe"],
-      grantRefs: ["grant:app:constitute-security:run"],
-      authorityRefs: ["authority:security.bootstrap"],
-      evidenceRefs: ["build:security:bootstrap"],
+      serviceRefs: ["app:constitute-cybersec"],
+      capabilityRefs: ["cybersec.processor.run", "event.fabric.observe"],
+      grantRefs: ["grant:app:constitute-cybersec:run"],
+      authorityRefs: ["authority:cybersec.bootstrap"],
+      evidenceRefs: ["build:cybersec:bootstrap"],
       issuedAt: now,
       expiresAt: now + 3600,
     },
     secretBoundary: {
       state: SURFACE_APP.SECRET_BOUNDARY.RESOLVED,
       accessGroupRefs: seed.accessGroupRefs,
-      authorityRefs: ["authority:security.bootstrap"],
+      authorityRefs: ["authority:cybersec.bootstrap"],
       detailRefs: seed.detailRefs,
       requiredContentClasses: seed.inputContentClasses,
-      evidenceRefs: ["security:access-boundary:bootstrap"],
+      evidenceRefs: ["cybersec:access-boundary:bootstrap"],
     },
     updatePosture: { state: SURFACE_APP.UPDATE_POSTURE.STATIC, checkedAt: now },
     releasePosture: {
       state: SURFACE_APP.RELEASE_POSTURE.ROLLBACK_READY,
-      buildRef: "build:security:bootstrap",
-      releaseRef: "release:security:bootstrap",
-      rollbackRef: "rollback:security:bootstrap",
+      buildRef: "build:cybersec:bootstrap",
+      releaseRef: "release:cybersec:bootstrap",
+      rollbackRef: "rollback:cybersec:bootstrap",
     },
     issuedAt: now,
     expiresAt: now + 90 * 24 * 60 * 60,
   });
   const manifest = assertSurfaceAppManifest({
     kind: SWARM.RECORD_KIND.SURFACE_APP_MANIFEST,
-    manifestId: "manifest:constitute-security",
+    manifestId: "manifest:constitute-cybersec",
     appId: appContract.appId,
     state: SURFACE_APP.MANIFEST_VERSION_STATE.CURRENT,
     currentAppContractRef: appContract.appRef,
     currentVersion: appContract.version,
     defaultSourceMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
     requiredModuleRoles: appContract.requiredModuleRoles,
-    bundledSourceRefs: ["bundle:constitute-security@0.1.0"],
+    bundledSourceRefs: ["bundle:constitute-cybersec@0.1.0"],
     versions: [
       {
         appContractRef: appContract.appRef,
@@ -679,48 +679,48 @@ export function securityAppContractFixture(now = nowSeconds()) {
         state: SURFACE_APP.MANIFEST_VERSION_STATE.CURRENT,
         sourceMode: SURFACE_APP.FULFILLMENT_MODE.BUNDLED,
         requiredModuleRoles: appContract.requiredModuleRoles,
-        bundledSourceRefs: ["bundle:constitute-security@0.1.0"],
+        bundledSourceRefs: ["bundle:constitute-cybersec@0.1.0"],
         grantRefs: appContract.grantRefs,
-        runnerRequirementRefs: ["runner:req:security-bootstrap"],
-        serviceManagerRequirementRefs: ["service-manager:req:security-bootstrap"],
-        compatibilityRefs: ["protocol:surface-app:v1", "protocol:security-seed:v1"],
+        runnerRequirementRefs: ["runner:req:cybersec-bootstrap"],
+        serviceManagerRequirementRefs: ["service-manager:req:cybersec-bootstrap"],
+        compatibilityRefs: ["protocol:surface-app:v1", "protocol:cybersec-seed:v1"],
         compatibilityWindow: {
           minVersion: "0.1.0",
           maxVersion: "0.1.x",
           protocolRef: "protocol:surface-app:v1",
         },
-        bootstrapContractRef: "bootstrap-contract:security-bootstrap",
-        releaseContractRef: "release:security:bootstrap",
+        bootstrapContractRef: "bootstrap-contract:cybersec-bootstrap",
+        releaseContractRef: "release:cybersec:bootstrap",
         authorityRefs: appContract.authorityRefs,
-        evidenceRefs: ["build:security:bootstrap", seed.seedId],
+        evidenceRefs: ["build:cybersec:bootstrap", seed.seedId],
         issuedAt: now,
         expiresAt: now + 90 * 24 * 60 * 60,
       },
     ],
     appContractRefs: [appContract.appRef],
     grantRefs: appContract.grantRefs,
-    runnerRequirementRefs: ["runner:req:security-bootstrap"],
-    serviceManagerRequirementRefs: ["service-manager:req:security-bootstrap"],
-    compatibilityRefs: ["protocol:surface-app:v1", "protocol:security-seed:v1"],
-    bootstrapContractRefs: ["bootstrap-contract:security-bootstrap"],
-    releaseContractRefs: ["release:security:bootstrap"],
+    runnerRequirementRefs: ["runner:req:cybersec-bootstrap"],
+    serviceManagerRequirementRefs: ["service-manager:req:cybersec-bootstrap"],
+    compatibilityRefs: ["protocol:surface-app:v1", "protocol:cybersec-seed:v1"],
+    bootstrapContractRefs: ["bootstrap-contract:cybersec-bootstrap"],
+    releaseContractRefs: ["release:cybersec:bootstrap"],
     authorityRefs: appContract.authorityRefs,
-    evidenceRefs: ["build:security:bootstrap", seed.seedId],
+    evidenceRefs: ["build:cybersec:bootstrap", seed.seedId],
     issuedAt: now,
     expiresAt: now + 90 * 24 * 60 * 60,
   });
   const runnerOperation = assertRunnerOperation({
-    ...security.runnerOperation,
-    operationId: "runner-operation:security-app:execute:1",
+    ...cybersec.runnerOperation,
+    operationId: "runner-operation:cybersec-app:execute:1",
     subjectRef: appContract.appRef,
     contractRef: appContract.appRef,
     grantRefs: appContract.grantRefs,
     inputRefs: [manifest.manifestId, appContract.appRef, seed.seedId],
-    outputRefs: ["artifact:security:bootstrap", ...seed.alertOutputRefs, ...seed.evidenceHoldRefs],
-    proofRefs: ["proof:security:surface-app"],
-    releaseRefs: ["release:security:bootstrap"],
-    releaseRef: "release:security:bootstrap",
-    rollbackRef: "rollback:security:bootstrap",
+    outputRefs: ["artifact:cybersec:bootstrap", ...seed.alertOutputRefs, ...seed.evidenceHoldRefs],
+    proofRefs: ["proof:cybersec:surface-app"],
+    releaseRefs: ["release:cybersec:bootstrap"],
+    releaseRef: "release:cybersec:bootstrap",
+    rollbackRef: "rollback:cybersec:bootstrap",
     safeFacts: {
       appId: appContract.appId,
       mode: "operatorDev",
@@ -730,8 +730,8 @@ export function securityAppContractFixture(now = nowSeconds()) {
   return { appContract, manifest, seed, runnerOperation };
 }
 
-export function buildSecurityProcessorRun(input = {}) {
-  const seed = assertSecurityProcessorSeed(input.seed);
+export function buildCybersecProcessorRun(input = {}) {
+  const seed = assertCybersecProcessorSeed(input.seed);
   const runnerOperation = assertRunnerOperation(input.runnerOperation);
   const observedAt = Number(input.now || 0) || nowSeconds();
   const observedEvents = asArray(input.observedEvents).map(normalizeObservedEvent);
@@ -739,7 +739,7 @@ export function buildSecurityProcessorRun(input = {}) {
 
   if (seed.state !== "ready") blockedReasons.push(`seed:${seed.state}`);
   if (seed.expiresAt !== undefined && Number(seed.expiresAt || 0) <= observedAt) blockedReasons.push("seedExpired");
-  if (seed.processorRoleRef !== "role:security.processor") blockedReasons.push("processorRoleMismatch");
+  if (seed.processorRoleRef !== "role:cybersec.processor") blockedReasons.push("processorRoleMismatch");
   if (TERMINAL_BLOCKED_STATES.has(runnerOperation.state)) blockedReasons.push(`runnerOperation:${runnerOperation.state}`);
   if (runnerOperation.expiresAt !== undefined && Number(runnerOperation.expiresAt || 0) <= observedAt) blockedReasons.push("runnerOperationExpired");
   if (!intersects(stringSet(runnerOperation.inputRefs), inputUniverse(seed))) blockedReasons.push("inputRefMismatch");
@@ -750,7 +750,7 @@ export function buildSecurityProcessorRun(input = {}) {
 
   const alertEvents = observedEvents.filter((event) => (
     ALERT_SEVERITIES.has(event.severity)
-    || event.eventClass.toLowerCase().includes("security")
+    || event.eventClass.toLowerCase().includes("cybersec")
   ));
   const heldEventRefs = unique(observedEvents.map((event) => event.eventRef));
   const severityCounts = summarizeSeverity(observedEvents);
@@ -778,10 +778,10 @@ export function buildSecurityProcessorRun(input = {}) {
     storageBoundary: seed.semanticBoundaries?.storage || "",
     eventDomainBoundary: seed.semanticBoundaries?.eventDomain || "",
   };
-  rejectUnsafeSafeFacts(safeFacts, "security processor run");
-  return assertSecurityProcessorRunReport({
-    kind: SECURITY_RUN_KIND,
-    reportId: `security-run:${seed.seedId}:${runnerOperation.operationId}`,
+  rejectUnsafeSafeFacts(safeFacts, "cybersec processor run");
+  return assertCybersecProcessorRunReport({
+    kind: CYBERSEC_RUN_KIND,
+    reportId: `cybersec-run:${seed.seedId}:${runnerOperation.operationId}`,
     seedId: seed.seedId,
     processorRef: seed.processorRef,
     processorRoleRef: seed.processorRoleRef,
@@ -823,53 +823,53 @@ export function buildSecurityProcessorRun(input = {}) {
   });
 }
 
-export function assertSecurityProcessorRunReport(record) {
-  if (!record || typeof record !== "object" || Array.isArray(record)) throw new Error("security processor run report must be an object");
-  if (record.kind !== SECURITY_RUN_KIND) throw new Error("invalid security processor run report kind");
+export function assertCybersecProcessorRunReport(record) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) throw new Error("cybersec processor run report must be an object");
+  if (record.kind !== CYBERSEC_RUN_KIND) throw new Error("invalid cybersec processor run report kind");
   for (const field of ["reportId", "seedId", "processorRef", "processorRoleRef", "fabricRef", "runnerOperationId", "state"]) {
-    if (!String(record[field] || "").trim()) throw new Error(`security processor run report missing ${field}`);
+    if (!String(record[field] || "").trim()) throw new Error(`cybersec processor run report missing ${field}`);
   }
-  if (!["clear", "alerted", "blocked", "degraded"].includes(record.state)) throw new Error("invalid security processor run report state");
+  if (!["clear", "alerted", "blocked", "degraded"].includes(record.state)) throw new Error("invalid cybersec processor run report state");
   for (const field of ["alertPosture", "evidenceHoldPosture", "accessPosture", "materializationPosture", "semanticBoundaries", "safeFacts"]) {
     if (!record[field] || typeof record[field] !== "object" || Array.isArray(record[field])) {
-      throw new Error(`security processor run report ${field} must be an object`);
+      throw new Error(`cybersec processor run report ${field} must be an object`);
     }
   }
   for (const field of ["evidenceRefs", "blockedReasons"]) {
-    if (!Array.isArray(record[field])) throw new Error(`security processor run report ${field} must be an array`);
+    if (!Array.isArray(record[field])) throw new Error(`cybersec processor run report ${field} must be an array`);
   }
   if (record.state === "blocked" && record.blockedReasons.length === 0) {
-    throw new Error("blocked security processor run requires blockedReasons");
+    throw new Error("blocked cybersec processor run requires blockedReasons");
   }
-  rejectUnsafeSafeFacts(record.safeFacts, "security processor run report");
-  if (!Number(record.observedAt || 0)) throw new Error("security processor run report missing observedAt");
+  rejectUnsafeSafeFacts(record.safeFacts, "cybersec processor run report");
+  if (!Number(record.observedAt || 0)) throw new Error("cybersec processor run report missing observedAt");
   return record;
 }
 
-export function securityBootstrapFixture(now = nowSeconds()) {
-  const seed = assertSecurityProcessorSeed({
-    kind: SWARM.RECORD_KIND.SECURITY_PROCESSOR_SEED,
-    seedId: "security-seed:logging.default",
+export function cybersecBootstrapFixture(now = nowSeconds()) {
+  const seed = assertCybersecProcessorSeed({
+    kind: SWARM.RECORD_KIND.CYBERSEC_PROCESSOR_SEED,
+    seedId: "cybersec-seed:logging.default",
     fabricRef: "event-fabric:logging.default",
-    processorRef: "constitute-security",
-    processorRoleRef: "role:security.processor",
+    processorRef: "constitute-cybersec",
+    processorRoleRef: "role:cybersec.processor",
     state: "ready",
     threatAnalysisRole: "eventFabricThreatAnalysis",
-    inputAccessClassRefs: ["event-class:logging.security.encrypted-detail"],
+    inputAccessClassRefs: ["event-class:logging.cybersec.encrypted-detail"],
     inputEventClasses: ["runtime.diagnostic", "media.path"],
     inputContentClasses: ["encryptedDetail", "safeIndex"],
-    accessGroupRefs: ["access-group:logging.security.default"],
-    processorContractRefs: ["processor-contract:logging.security"],
-    evidenceProfileRefs: ["logging.security.default"],
-    materializationBudgetRefs: ["logging.security.default.90d"],
-    storageRefs: ["storage:logging.security.archive"],
+    accessGroupRefs: ["access-group:logging.cybersec.default"],
+    processorContractRefs: ["processor-contract:logging.cybersec"],
+    evidenceProfileRefs: ["logging.cybersec.default"],
+    materializationBudgetRefs: ["logging.cybersec.default.90d"],
+    storageRefs: ["storage:logging.cybersec.archive"],
     detailRefs: ["encrypted-detail:logging.default"],
-    alertOutputRefs: ["security:alerts:logging.default"],
-    evidenceHoldRefs: ["security:evidence-hold:logging.default"],
-    retentionHoldRefs: ["retention:security-hold:logging.default"],
+    alertOutputRefs: ["cybersec:alerts:logging.default"],
+    evidenceHoldRefs: ["cybersec:evidence-hold:logging.default"],
+    retentionHoldRefs: ["retention:cybersec-hold:logging.default"],
     encryptedDetailCustody: {
       state: "referenceOnly",
-      accessGroupRefs: ["access-group:logging.security.default"],
+      accessGroupRefs: ["access-group:logging.cybersec.default"],
       detailRefs: ["encrypted-detail:logging.default"],
     },
     semanticBoundaries: {
@@ -878,33 +878,33 @@ export function securityBootstrapFixture(now = nowSeconds()) {
       eventDomain: "doesNotOwn",
     },
     safeFacts: {
-      purpose: "securityThreatAnalysis",
+      purpose: "cybersecThreatAnalysis",
       detailCustody: "encryptedDetailRef",
       alerting: "seeded",
     },
-    evidenceRefs: ["logging.security.default"],
+    evidenceRefs: ["logging.cybersec.default"],
     blockedReasons: [],
     issuedAt: now,
     expiresAt: now + 90 * 24 * 60 * 60,
   });
   const runnerOperation = assertRunnerOperation({
     kind: SWARM.RECORD_KIND.RUNNER_OPERATION,
-    operationId: "runner-operation:security-bootstrap:execute:1",
-    runnerId: "runner:lab-gateway:security-bootstrap",
+    operationId: "runner-operation:cybersec-bootstrap:execute:1",
+    runnerId: "runner:lab-gateway:cybersec-bootstrap",
     runnerRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
     hostRef: "host:lab-gateway",
     requesterRef: "identity:aux",
-    subjectRef: "security-processor:dev",
-    contractRef: "security-processor:seed@0.1.0",
+    subjectRef: "cybersec-processor:dev",
+    contractRef: "cybersec-processor:seed@0.1.0",
     operation: RUNNER.OPERATION.EXECUTE,
     state: RUNNER.OPERATION_STATE.SUCCEEDED,
-    grantRefs: ["authority-grant:runner:security-bootstrap"],
+    grantRefs: ["authority-grant:runner:cybersec-bootstrap"],
     capabilityRefs: ["app.runner.pin"],
     inputRefs: [seed.fabricRef, ...seed.inputAccessClassRefs],
     outputRefs: [...seed.alertOutputRefs, ...seed.evidenceHoldRefs],
     evidenceRefs: ["evidence:runner:started", "evidence:runner:completed"],
-    proofRefs: ["proof:runner:security-bootstrap"],
-    releaseRefs: ["release:runner:security-bootstrap"],
+    proofRefs: ["proof:runner:cybersec-bootstrap"],
+    releaseRefs: ["release:runner:cybersec-bootstrap"],
     resourceBudget: {
       profileRef: "resource-profile:operator-dev",
       maxMemoryMiB: 512,
@@ -912,7 +912,7 @@ export function securityBootstrapFixture(now = nowSeconds()) {
     },
     resourcePosture: {
       kind: SWARM.RECORD_KIND.RESOURCE_POSTURE,
-      postureId: "resource-posture:runner:security-bootstrap",
+      postureId: "resource-posture:runner:cybersec-bootstrap",
       profileId: "resource-profile:operator-dev",
       state: SWARM.RESOURCE_POSTURE_STATE.WITHIN_BUDGET,
       counts: { memoryMiB: 128, cpuPct: 8 },
@@ -924,14 +924,14 @@ export function securityBootstrapFixture(now = nowSeconds()) {
     },
     releasePosture: {
       state: SURFACE_APP.RELEASE_POSTURE.ROLLBACK_READY,
-      buildRef: "build:runner:security-bootstrap",
-      releaseRef: "release:runner:security-bootstrap",
-      rollbackRef: "rollback:runner:security-bootstrap",
+      buildRef: "build:runner:cybersec-bootstrap",
+      releaseRef: "release:runner:cybersec-bootstrap",
+      rollbackRef: "rollback:runner:cybersec-bootstrap",
     },
-    releaseRef: "release:runner:security-bootstrap",
-    rollbackRef: "rollback:runner:security-bootstrap",
+    releaseRef: "release:runner:cybersec-bootstrap",
+    rollbackRef: "rollback:runner:cybersec-bootstrap",
     safeFacts: {
-      role: "securityProcessor",
+      role: "cybersecProcessor",
       mode: "operatorDev",
     },
     requestedAt: now,
@@ -1032,7 +1032,7 @@ export function multiIdentityGrantFixture(now = nowSeconds()) {
       state: AGREEMENT.ACTION_GRANT_STATE.ACCEPTED,
       scope: {
         inheritance: "full",
-        contracts: ["gateway", "logging", "nvr", "storage", "security"],
+        contracts: ["gateway", "logging", "nvr", "storage", "cybersec"],
       },
       capabilityRefs: ["identity.grant.fullaccess"],
       elevated: true,
@@ -1079,16 +1079,16 @@ export function multiIdentityGrantFixture(now = nowSeconds()) {
   ];
   const accessGroup = assertAccessGroup({
     kind: SWARM.RECORD_KIND.ACCESS_GROUP,
-    groupId: "access-group:identity:aux:security-events",
+    groupId: "access-group:identity:aux:cybersec-events",
     ownerRef: ownerIdentityRef,
     subjectRef: "event-fabric:logging.default",
     contentClasses: [AGREEMENT.CONTENT_CLASS.ENCRYPTED_DETAIL, AGREEMENT.CONTENT_CLASS.SAFE_INDEX],
     memberRefs: ["member:logging:processor", granteeMemberRef],
     adminRefs: [rootRef],
-    currentEpochId: "access-epoch:identity:aux:security-events:3",
-    partitionRefs: ["partition:event-fabric:logging-security"],
+    currentEpochId: "access-epoch:identity:aux:cybersec-events:3",
+    partitionRefs: ["partition:event-fabric:logging-cybersec"],
     policyRefs: ["policy:identity:agent-full-access"],
-    safeFacts: { purpose: "securityReplay" },
+    safeFacts: { purpose: "cybersecReplay" },
     issuedAt: now + 5,
   });
   const accessEpoch = assertAccessEpoch({
@@ -1097,11 +1097,11 @@ export function multiIdentityGrantFixture(now = nowSeconds()) {
     groupId: accessGroup.groupId,
     sequence: 3,
     changeKind: AGREEMENT.ACCESS_EPOCH_CHANGE.ADD_MEMBER,
-    previousEpochId: "access-epoch:identity:aux:security-events:2",
+    previousEpochId: "access-epoch:identity:aux:cybersec-events:2",
     memberRefs: accessGroup.memberRefs,
     addedMemberRefs: [granteeMemberRef],
     partitionRefs: accessGroup.partitionRefs,
-    keyRef: "key-ref:identity:aux:security-events:3",
+    keyRef: "key-ref:identity:aux:cybersec-events:3",
     proofRefs: ["proof:caac-open:agent-dev"],
     safeFacts: { change: "agentAccess" },
     issuedAt: now + 6,
@@ -1118,7 +1118,7 @@ export function multiIdentityGrantFixture(now = nowSeconds()) {
       "contract:logging.default",
       "contract:nvr.streams",
       "contract:storage.default",
-      "contract:security.default",
+      "contract:cybersec.default",
     ],
     actionGrantRefs: actionGrants.map((grant) => grant.grantId),
     accessGroupRefs: [accessGroup.groupId],

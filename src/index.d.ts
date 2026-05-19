@@ -9,14 +9,14 @@ import type {
   AuthorityRootOperationRecord,
   RunnerHostFulfillmentPosture,
   RunnerOperationRecord,
-  SecurityProcessorSeedRecord,
+  CybersecProcessorSeedRecord,
   SurfaceAppContract,
   SurfaceAppManifest,
 } from "../../constitute-protocol/src/index.js";
 
 export type { AppRunnerFulfillmentLifecycle, AppRunnerFulfillmentReport, RunnerHostFulfillmentPosture } from "../../constitute-protocol/src/index.js";
 
-export type SecurityObservedEvent = {
+export type CybersecObservedEvent = {
   eventRef?: string;
   eventId?: string;
   evidenceRef?: string;
@@ -26,8 +26,8 @@ export type SecurityObservedEvent = {
   safeFacts?: Record<string, unknown>;
 };
 
-export type SecurityProcessorRunReport = {
-  kind: "security.processor.run.report";
+export type CybersecProcessorRunReport = {
+  kind: "cybersec.processor.run.report";
   reportId: string;
   seedId: string;
   processorRef: string;
@@ -47,24 +47,24 @@ export type SecurityProcessorRunReport = {
   expiresAt?: number;
 };
 
-export function buildSecurityProcessorRun(input: {
-  seed: SecurityProcessorSeedRecord;
+export function buildCybersecProcessorRun(input: {
+  seed: CybersecProcessorSeedRecord;
   runnerOperation: RunnerOperationRecord;
-  observedEvents?: SecurityObservedEvent[];
+  observedEvents?: CybersecObservedEvent[];
   now?: number;
-}): SecurityProcessorRunReport;
+}): CybersecProcessorRunReport;
 
-export function assertSecurityProcessorRunReport(record: unknown): SecurityProcessorRunReport;
-export function securityBootstrapFixture(now?: number): {
-  seed: SecurityProcessorSeedRecord;
+export function assertCybersecProcessorRunReport(record: unknown): CybersecProcessorRunReport;
+export function cybersecBootstrapFixture(now?: number): {
+  seed: CybersecProcessorSeedRecord;
   runnerOperation: RunnerOperationRecord;
-  observedEvents: SecurityObservedEvent[];
+  observedEvents: CybersecObservedEvent[];
 };
 
-export function securityAppContractFixture(now?: number): {
+export function cybersecAppContractFixture(now?: number): {
   appContract: SurfaceAppContract;
   manifest: SurfaceAppManifest;
-  seed: SecurityProcessorSeedRecord;
+  seed: CybersecProcessorSeedRecord;
   runnerOperation: RunnerOperationRecord;
 };
 

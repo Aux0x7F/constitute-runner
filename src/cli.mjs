@@ -5,10 +5,10 @@ import {
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
   buildMultiIdentityGrantProof,
-  buildSecurityProcessorRun,
+  buildCybersecProcessorRun,
   multiIdentityGrantFixture,
-  securityAppContractFixture,
-  securityBootstrapFixture,
+  cybersecAppContractFixture,
+  cybersecBootstrapFixture,
 } from "./index.js";
 
 function argValue(name) {
@@ -18,18 +18,18 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture security-bootstrap|security-app-contract|multi-identity-grant|app-fulfillment|app-lifecycle | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture cybersec-bootstrap|cybersec-app-contract|multi-identity-grant|app-fulfillment|app-lifecycle | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
 const inputPath = argValue("--input");
 let input;
 
-if (fixture === "security-bootstrap") {
-  console.log(JSON.stringify(buildSecurityProcessorRun(securityBootstrapFixture()), null, 2));
+if (fixture === "cybersec-bootstrap") {
+  console.log(JSON.stringify(buildCybersecProcessorRun(cybersecBootstrapFixture()), null, 2));
   process.exit(0);
-} else if (fixture === "security-app-contract") {
-  console.log(JSON.stringify(securityAppContractFixture(), null, 2));
+} else if (fixture === "cybersec-app-contract") {
+  console.log(JSON.stringify(cybersecAppContractFixture(), null, 2));
   process.exit(0);
 } else if (fixture === "multi-identity-grant") {
   console.log(JSON.stringify(buildMultiIdentityGrantProof(multiIdentityGrantFixture()), null, 2));
@@ -49,5 +49,5 @@ if (fixture === "security-bootstrap") {
 
 const report = input.appContract && input.manifest
   ? (input.lifecycle ? buildAppRunnerFulfillmentLifecycle(input) : buildAppRunnerFulfillment(input))
-  : buildSecurityProcessorRun(input);
+  : buildCybersecProcessorRun(input);
 console.log(JSON.stringify(report, null, 2));

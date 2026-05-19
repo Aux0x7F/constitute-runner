@@ -7,32 +7,32 @@ import {
   assertAppRunnerFulfillmentReport,
   assertRunnerHostPosture,
   buildMultiIdentityGrantProof,
-  assertSecurityProcessorRunReport,
+  assertCybersecProcessorRunReport,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
   buildRunnerHostFulfillmentPosture,
-  buildSecurityProcessorRun,
+  buildCybersecProcessorRun,
   multiIdentityGrantFixture,
-  securityAppContractFixture,
-  securityBootstrapFixture,
+  cybersecAppContractFixture,
+  cybersecBootstrapFixture,
 } from "../src/index.js";
 
-test("security bootstrap runner emits alert and evidence-hold posture", () => {
-  const report = buildSecurityProcessorRun(securityBootstrapFixture());
-  assert.equal(report.kind, "security.processor.run.report");
+test("cybersec bootstrap runner emits alert and evidence-hold posture", () => {
+  const report = buildCybersecProcessorRun(cybersecBootstrapFixture());
+  assert.equal(report.kind, "cybersec.processor.run.report");
   assert.equal(report.state, "alerted");
-  assert.equal(report.processorRef, "constitute-security");
+  assert.equal(report.processorRef, "constitute-cybersec");
   assert.equal(report.alertPosture.state, "open");
   assert.equal(report.evidenceHoldPosture.state, "holding");
   assert.deepEqual(report.blockedReasons, []);
   assert.equal(report.safeFacts.storageBoundary, "ciphertextFulfillmentOnly");
   assert.equal(report.safeFacts.eventDomainBoundary, "doesNotOwn");
-  assertSecurityProcessorRunReport(report);
+  assertCybersecProcessorRunReport(report);
 });
 
-test("security bootstrap blocks when runner inputs do not match seed access", () => {
-  const fixture = securityBootstrapFixture();
-  const report = buildSecurityProcessorRun({
+test("cybersec bootstrap blocks when runner inputs do not match seed access", () => {
+  const fixture = cybersecBootstrapFixture();
+  const report = buildCybersecProcessorRun({
     ...fixture,
     runnerOperation: {
       ...fixture.runnerOperation,
@@ -44,9 +44,9 @@ test("security bootstrap blocks when runner inputs do not match seed access", ()
   assert.equal(report.accessPosture.state, "blocked");
 });
 
-test("security bootstrap rejects unsafe safe-fact leakage", () => {
-  const fixture = securityBootstrapFixture();
-  assert.throws(() => buildSecurityProcessorRun({
+test("cybersec bootstrap rejects unsafe safe-fact leakage", () => {
+  const fixture = cybersecBootstrapFixture();
+  assert.throws(() => buildCybersecProcessorRun({
     ...fixture,
     observedEvents: [{
       eventRef: "event:unsafe",
@@ -59,9 +59,9 @@ test("security bootstrap rejects unsafe safe-fact leakage", () => {
   }), /unsafe key payload/);
 });
 
-test("security bootstrap blocks expired seed posture", () => {
-  const fixture = securityBootstrapFixture(1_700_000_000);
-  const report = buildSecurityProcessorRun({
+test("cybersec bootstrap blocks expired seed posture", () => {
+  const fixture = cybersecBootstrapFixture(1_700_000_000);
+  const report = buildCybersecProcessorRun({
     ...fixture,
     now: 1_800_000_000,
   });
@@ -70,8 +70,8 @@ test("security bootstrap blocks expired seed posture", () => {
   assert.equal(report.blockedReasons.includes("runnerOperationExpired"), true);
 });
 
-test("security runner cli executes the bootstrap fixture", () => {
-  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "security-bootstrap"], {
+test("cybersec runner cli executes the bootstrap fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "cybersec-bootstrap"], {
     cwd: new URL("..", import.meta.url),
     encoding: "utf8",
   });
@@ -80,35 +80,35 @@ test("security runner cli executes the bootstrap fixture", () => {
   assert.equal(report.safeFacts.alertCount, 1);
 });
 
-test("security app fixture declares event fabric, access, and materialization requirements", () => {
+test("cybersec app fixture declares event fabric, access, and materialization requirements", () => {
   const now = 1_700_000_000;
-  const fixture = securityAppContractFixture(now);
-  assert.equal(fixture.appContract.appId, "constitute-security");
-  assert.equal(fixture.appContract.grantRefs.includes("grant:app:constitute-security:run"), true);
-  assert.deepEqual(fixture.appContract.accessGroupRefs, ["access-group:logging.security.default"]);
+  const fixture = cybersecAppContractFixture(now);
+  assert.equal(fixture.appContract.appId, "constitute-cybersec");
+  assert.equal(fixture.appContract.grantRefs.includes("grant:app:constitute-cybersec:run"), true);
+  assert.deepEqual(fixture.appContract.accessGroupRefs, ["access-group:logging.cybersec.default"]);
   assert.deepEqual(fixture.appContract.requiredContentClasses, ["encryptedDetail", "safeIndex"]);
-  assert.equal(fixture.appContract.projectionSubscriptions[0].processorRoleRef, "role:security.processor");
-  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.encrypted-detail.refs"), true);
-  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.alerts.ui"), true);
+  assert.equal(fixture.appContract.projectionSubscriptions[0].processorRoleRef, "role:cybersec.processor");
+  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "cybersec.encrypted-detail.refs"), true);
+  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "cybersec.alerts.ui"), true);
 
   const report = buildAppRunnerFulfillment(fixture);
   assert.equal(report.state, "succeeded");
-  assert.equal(report.appId, "constitute-security");
+  assert.equal(report.appId, "constitute-cybersec");
   assert.equal(report.sourceMode, "bundled");
   assert.equal(report.safeFacts.sourceRefCount, 1);
   assert.equal(report.inputRefs.includes(fixture.seed.seedId), true);
   assertAppRunnerFulfillmentReport(report);
 });
 
-test("security runner cli emits the security app contract fixture", () => {
-  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "security-app-contract"], {
+test("cybersec runner cli emits the cybersec app contract fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "cybersec-app-contract"], {
     cwd: new URL("..", import.meta.url),
     encoding: "utf8",
   });
   const fixture = JSON.parse(stdout);
-  assert.equal(fixture.appContract.appId, "constitute-security");
-  assert.equal(fixture.manifest.currentAppContractRef, "app:constitute-security");
-  assert.equal(fixture.seed.processorRoleRef, "role:security.processor");
+  assert.equal(fixture.appContract.appId, "constitute-cybersec");
+  assert.equal(fixture.manifest.currentAppContractRef, "app:constitute-cybersec");
+  assert.equal(fixture.seed.processorRoleRef, "role:cybersec.processor");
 });
 
 test("multi-identity grant proof preserves authority plane separation", () => {
@@ -135,7 +135,7 @@ test("multi-identity grant proof degrades when access epoch omits grantee", () =
   assert.equal(proof.blockedReasons.includes("granteeMissingFromAccessEpoch"), true);
 });
 
-test("security runner cli executes the multi-identity grant fixture", () => {
+test("cybersec runner cli executes the multi-identity grant fixture", () => {
   const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "multi-identity-grant"], {
     cwd: new URL("..", import.meta.url),
     encoding: "utf8",

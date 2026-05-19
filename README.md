@@ -14,7 +14,7 @@ UI state, or app source selection.
 ```bash
 npm test
 npm run build
-node src/cli.mjs --fixture security-bootstrap
-node src/cli.mjs --fixture security-app-contract
+node src/cli.mjs --fixture cybersec-bootstrap
+node src/cli.mjs --fixture cybersec-app-contract
 node src/cli.mjs --fixture app-fulfillment
 ```
