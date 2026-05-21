@@ -453,6 +453,74 @@ export function appRunnerFulfillmentFixture(now = nowSeconds()) {
   return { appContract, manifest, runnerOperation };
 }
 
+export function buildRunnerBuildOperationFixture(now = nowSeconds()) {
+  const runnerOperation = assertRunnerOperation({
+    kind: SWARM.RECORD_KIND.RUNNER_OPERATION,
+    operationId: "runner-operation:build-cybersec-bootstrap:execute:1",
+    runnerId: "runner:local-host:build",
+    runnerRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
+    hostRef: "host:runner-lab",
+    requesterRef: "identity:aux",
+    subjectRef: "build:contract:cybersec-bootstrap",
+    contractRef: "build:contract:cybersec-bootstrap",
+    operation: RUNNER.OPERATION.EXECUTE,
+    state: RUNNER.OPERATION_STATE.SUCCEEDED,
+    grantRefs: ["authority:grant:runner-build"],
+    capabilityRefs: ["build.run.execute"],
+    inputRefs: ["source:snapshot:head", "build:recipe:browser-module"],
+    outputRefs: [
+      "build:artifact:module",
+      "build:proof:cybersec-bootstrap",
+      "release:candidate:cybersec-bootstrap",
+    ],
+    evidenceRefs: ["runner:evidence:build-accepted", "runner:evidence:build-completed"],
+    proofRefs: ["build:proof:cybersec-bootstrap"],
+    releaseRefs: ["release:candidate:cybersec-bootstrap"],
+    resourceBudget: {
+      profileRef: "resource-profile:build-lite",
+      maxMemoryMiB: 512,
+      maxCpuPct: 35,
+    },
+    resourcePosture: {
+      kind: SWARM.RECORD_KIND.RESOURCE_POSTURE,
+      postureId: "resource-posture:runner:build-cybersec-bootstrap",
+      profileId: "resource-profile:build-lite",
+      state: SWARM.RESOURCE_POSTURE_STATE.WITHIN_BUDGET,
+      counts: { memoryMiB: 144, cpuPct: 8 },
+      budgets: { memoryMiB: 512, cpuPct: 35 },
+      sampledAt: now + 3,
+    },
+    secretBoundary: { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture: {
+      state: SURFACE_APP.RELEASE_POSTURE.BUILD_READY,
+      buildRef: "build:contract:cybersec-bootstrap",
+      releaseRef: "release:candidate:cybersec-bootstrap",
+      rollbackRef: "rollback:cybersec-bootstrap",
+    },
+    releaseRef: "release:candidate:cybersec-bootstrap",
+    rollbackRef: "rollback:cybersec-bootstrap",
+    safeFacts: {
+      processorContract: "build",
+      sourceSnapshotRef: "source:snapshot:head",
+      artifactCount: 1,
+    },
+    requestedAt: now,
+    acceptedAt: now + 1,
+    startedAt: now + 2,
+    completedAt: now + 9,
+    observedAt: now + 10,
+    expiresAt: now + 3600,
+  });
+  return {
+    runnerOperation,
+    hostPosture: buildRunnerHostFulfillmentPosture({
+      runnerOperation,
+      serviceRefs: ["build:contract:cybersec-bootstrap"],
+      witnessRefs: ["witness:build:runner-host"],
+    }),
+  };
+}
+
 export function buildMultiIdentityGrantProof(input = {}) {
   const rootOperation = input.rootOperation ? assertAuthorityRootOperation(input.rootOperation) : null;
   const actionGrants = asArray(input.actionGrants).map(assertActionAuthorityGrant);

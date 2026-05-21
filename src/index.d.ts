@@ -58,6 +58,11 @@ export function appRunnerFulfillmentFixture(now?: number): {
   runnerOperation: RunnerOperationRecord;
 };
 
+export function buildRunnerBuildOperationFixture(now?: number): {
+  runnerOperation: RunnerOperationRecord;
+  hostPosture: RunnerHostFulfillmentPosture;
+};
+
 export function buildMultiIdentityGrantProof(input: {
   rootOperation?: AuthorityRootOperationRecord;
   actionGrants?: ActionAuthorityGrantRecord[];

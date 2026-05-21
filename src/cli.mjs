@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import {
   appRunnerFulfillmentFixture,
+  buildRunnerBuildOperationFixture,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
   buildMultiIdentityGrantProof,
@@ -15,7 +16,7 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture multi-identity-grant|app-fulfillment|app-lifecycle | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture multi-identity-grant|app-fulfillment|app-lifecycle|build-operation | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
@@ -30,6 +31,9 @@ if (fixture === "multi-identity-grant") {
   process.exit(0);
 } else if (fixture === "app-lifecycle") {
   console.log(JSON.stringify(buildAppRunnerFulfillmentLifecycle(appRunnerFulfillmentFixture()), null, 2));
+  process.exit(0);
+} else if (fixture === "build-operation") {
+  console.log(JSON.stringify(buildRunnerBuildOperationFixture(), null, 2));
   process.exit(0);
 } else if (inputPath) {
   input = JSON.parse(fs.readFileSync(inputPath, "utf8"));

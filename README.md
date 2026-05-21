@@ -16,4 +16,9 @@ npm test
 npm run build
 node src/cli.mjs --fixture app-fulfillment
 node src/cli.mjs --fixture app-lifecycle
+node src/cli.mjs --fixture build-operation
 ```
+
+The build-operation fixture is runner-side evidence only: it reports accepted,
+completed, resource, proof, and release-candidate refs for a build contract
+without making the runner own source, build, storage, or app semantics.

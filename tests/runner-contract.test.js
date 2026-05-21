@@ -9,6 +9,7 @@ import {
   buildMultiIdentityGrantProof,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
+  buildRunnerBuildOperationFixture,
   buildRunnerHostFulfillmentPosture,
   multiIdentityGrantFixture,
 } from "../src/index.js";
@@ -143,4 +144,25 @@ test("runner cli executes the app lifecycle fixture", () => {
   assert.equal(lifecycle.kind, "app.runner.fulfillment.lifecycle");
   assert.equal(lifecycle.state, "succeeded");
   assert.equal(lifecycle.safeFacts.appId, "constitute-runner-proof");
+});
+
+test("runner exposes build operation evidence without owning build semantics", () => {
+  const fixture = buildRunnerBuildOperationFixture();
+  assert.equal(fixture.runnerOperation.contractRef, "build:contract:cybersec-bootstrap");
+  assert.equal(fixture.runnerOperation.outputRefs.includes("release:candidate:cybersec-bootstrap"), true);
+  assert.equal(fixture.hostPosture.state, "succeeded");
+  assert.equal(fixture.hostPosture.contractRef, "build:contract:cybersec-bootstrap");
+  assert.equal(fixture.hostPosture.safeFacts.serviceHostIdentitySeparated, true);
+  assertRunnerHostPosture(fixture.hostPosture);
+});
+
+test("runner cli executes the build operation fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "build-operation"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const fixture = JSON.parse(stdout);
+  assert.equal(fixture.runnerOperation.state, "succeeded");
+  assert.equal(fixture.hostPosture.state, "succeeded");
+  assert.equal(fixture.runnerOperation.safeFacts.processorContract, "build");
 });
