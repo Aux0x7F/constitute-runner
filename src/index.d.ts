@@ -63,6 +63,43 @@ export function buildRunnerBuildOperationFixture(now?: number): {
   hostPosture: RunnerHostFulfillmentPosture;
 };
 
+export function buildRunnerOperationForBuild(input: {
+  buildContract: {
+    buildContractRef: string;
+    sourceSnapshotRef: string;
+    recipeRef: string;
+  };
+  buildRun: {
+    buildContractRef: string;
+    sourceSnapshotRef: string;
+    recipeRef: string;
+    runnerRef: string;
+    runnerOperationRef: string;
+    state: string;
+    grantRefs?: string[];
+    artifactRefs?: string[];
+    proofRefs?: string[];
+    releaseCandidateRefs?: string[];
+    evidenceRefs?: string[];
+    blockedReasons?: string[];
+    requestedAt?: number;
+    startedAt?: number;
+    completedAt?: number;
+    expiresAt?: number;
+  };
+  runnerMemberRef: string;
+  hostRef?: string;
+  requesterRef?: string;
+  resourceBudget?: Record<string, unknown>;
+  resourcePosture?: Record<string, unknown>;
+  secretBoundary?: Record<string, unknown>;
+  releasePosture?: Record<string, unknown>;
+  rollbackPosture?: Record<string, unknown>;
+  rollbackRef?: string;
+  now?: number;
+  observedAt?: number;
+}): RunnerOperationRecord;
+
 export function buildMultiIdentityGrantProof(input: {
   rootOperation?: AuthorityRootOperationRecord;
   actionGrants?: ActionAuthorityGrantRecord[];

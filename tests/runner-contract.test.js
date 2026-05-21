@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   appRunnerFulfillmentFixture,
   assertAppRunnerFulfillmentLifecycle,
@@ -11,6 +13,7 @@ import {
   buildAppRunnerFulfillmentLifecycle,
   buildRunnerBuildOperationFixture,
   buildRunnerHostFulfillmentPosture,
+  buildRunnerOperationForBuild,
   multiIdentityGrantFixture,
 } from "../src/index.js";
 
@@ -148,12 +151,45 @@ test("runner cli executes the app lifecycle fixture", () => {
 
 test("runner exposes build operation evidence without owning build semantics", () => {
   const fixture = buildRunnerBuildOperationFixture();
-  assert.equal(fixture.runnerOperation.contractRef, "build:contract:cybersec-bootstrap");
-  assert.equal(fixture.runnerOperation.outputRefs.includes("release:candidate:cybersec-bootstrap"), true);
+  assert.equal(fixture.runnerOperation.contractRef, "build:contract:build-runner-proof");
+  assert.equal(fixture.runnerOperation.outputRefs.includes("release:candidate:build-runner-proof"), true);
   assert.equal(fixture.hostPosture.state, "succeeded");
-  assert.equal(fixture.hostPosture.contractRef, "build:contract:cybersec-bootstrap");
+  assert.equal(fixture.hostPosture.contractRef, "build:contract:build-runner-proof");
   assert.equal(fixture.hostPosture.safeFacts.serviceHostIdentitySeparated, true);
   assertRunnerHostPosture(fixture.hostPosture);
+});
+
+test("runner derives build operation from build contract and run records", () => {
+  const runnerOperation = buildRunnerOperationForBuild({
+    buildContract: {
+      buildContractRef: "build:contract:build-runner-proof",
+      sourceSnapshotRef: "source:snapshot:head",
+      recipeRef: "build:recipe:browser-module",
+    },
+    buildRun: {
+      buildContractRef: "build:contract:build-runner-proof",
+      sourceSnapshotRef: "source:snapshot:head",
+      recipeRef: "build:recipe:browser-module",
+      runnerRef: "runner:local-host:build",
+      runnerOperationRef: "runner-operation:build-build-runner-proof:execute:1",
+      state: "succeeded",
+      grantRefs: ["authority:grant:runner-build"],
+      artifactRefs: ["build:artifact:module"],
+      proofRefs: ["build:proof:build-runner-proof"],
+      releaseCandidateRefs: ["release:candidate:build-runner-proof"],
+      evidenceRefs: ["runner:evidence:build-completed"],
+      requestedAt: 1_779_266_000,
+      startedAt: 1_779_266_002,
+      completedAt: 1_779_266_009,
+      expiresAt: 1_779_269_600,
+    },
+    runnerMemberRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
+  });
+  assert.equal(runnerOperation.kind, "runner.operation");
+  assert.equal(runnerOperation.contractRef, "build:contract:build-runner-proof");
+  assert.equal(runnerOperation.safeFacts.processorContract, "build");
+  assert.deepEqual(runnerOperation.inputRefs, ["source:snapshot:head", "build:recipe:browser-module"]);
+  assert.equal(runnerOperation.outputRefs.includes("release:candidate:build-runner-proof"), true);
 });
 
 test("runner cli executes the build operation fixture", () => {
@@ -165,4 +201,38 @@ test("runner cli executes the build operation fixture", () => {
   assert.equal(fixture.runnerOperation.state, "succeeded");
   assert.equal(fixture.hostPosture.state, "succeeded");
   assert.equal(fixture.runnerOperation.safeFacts.processorContract, "build");
+});
+
+test("runner cli derives build operation from input records", () => {
+  const input = {
+    buildContract: {
+      buildContractRef: "build:contract:build-runner-proof",
+      sourceSnapshotRef: "source:snapshot:head",
+      recipeRef: "build:recipe:browser-module",
+    },
+    buildRun: {
+      buildContractRef: "build:contract:build-runner-proof",
+      sourceSnapshotRef: "source:snapshot:head",
+      recipeRef: "build:recipe:browser-module",
+      runnerRef: "runner:local-host:build",
+      runnerOperationRef: "runner-operation:build-build-runner-proof:execute:1",
+      state: "blocked",
+      grantRefs: ["authority:grant:runner-build"],
+      blockedReasons: ["runner.resource.unavailable"],
+      requestedAt: 1_779_266_000,
+      expiresAt: 1_779_269_600,
+    },
+    runnerMemberRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
+  };
+  const file = new URL("../target/runner-build-input.json", import.meta.url);
+  const filePath = fileURLToPath(file);
+  fs.mkdirSync(fileURLToPath(new URL("../target/", import.meta.url)), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(input), "utf8");
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--input", filePath], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const runnerOperation = JSON.parse(stdout);
+  assert.equal(runnerOperation.state, "blocked");
+  assert.deepEqual(runnerOperation.blockedReasons, ["runner.resource.unavailable"]);
 });
