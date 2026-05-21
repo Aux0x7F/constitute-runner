@@ -5,109 +5,14 @@ import {
   appRunnerFulfillmentFixture,
   assertAppRunnerFulfillmentLifecycle,
   assertAppRunnerFulfillmentReport,
+  assertRunnerHostPosture,
   buildMultiIdentityGrantProof,
-  assertSecurityProcessorRunReport,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
-  buildSecurityProcessorRun,
+  buildRunnerBuildOperationFixture,
+  buildRunnerHostFulfillmentPosture,
   multiIdentityGrantFixture,
-  securityAppContractFixture,
-  securityBootstrapFixture,
 } from "../src/index.js";
-
-test("security bootstrap runner emits alert and evidence-hold posture", () => {
-  const report = buildSecurityProcessorRun(securityBootstrapFixture());
-  assert.equal(report.kind, "security.processor.run.report");
-  assert.equal(report.state, "alerted");
-  assert.equal(report.processorRef, "constitute-security");
-  assert.equal(report.alertPosture.state, "open");
-  assert.equal(report.evidenceHoldPosture.state, "holding");
-  assert.deepEqual(report.blockedReasons, []);
-  assert.equal(report.safeFacts.storageBoundary, "ciphertextFulfillmentOnly");
-  assert.equal(report.safeFacts.eventDomainBoundary, "doesNotOwn");
-  assertSecurityProcessorRunReport(report);
-});
-
-test("security bootstrap blocks when runner inputs do not match seed access", () => {
-  const fixture = securityBootstrapFixture();
-  const report = buildSecurityProcessorRun({
-    ...fixture,
-    runnerOperation: {
-      ...fixture.runnerOperation,
-      inputRefs: ["event-fabric:unrelated"],
-    },
-  });
-  assert.equal(report.state, "blocked");
-  assert.equal(report.blockedReasons.includes("inputRefMismatch"), true);
-  assert.equal(report.accessPosture.state, "blocked");
-});
-
-test("security bootstrap rejects unsafe safe-fact leakage", () => {
-  const fixture = securityBootstrapFixture();
-  assert.throws(() => buildSecurityProcessorRun({
-    ...fixture,
-    observedEvents: [{
-      eventRef: "event:unsafe",
-      eventClass: "runtime.diagnostic",
-      severity: "error",
-      safeFacts: {
-        payload: "must-not-copy",
-      },
-    }],
-  }), /unsafe key payload/);
-});
-
-test("security bootstrap blocks expired seed posture", () => {
-  const fixture = securityBootstrapFixture(1_700_000_000);
-  const report = buildSecurityProcessorRun({
-    ...fixture,
-    now: 1_800_000_000,
-  });
-  assert.equal(report.state, "blocked");
-  assert.equal(report.blockedReasons.includes("seedExpired"), true);
-  assert.equal(report.blockedReasons.includes("runnerOperationExpired"), true);
-});
-
-test("security runner cli executes the bootstrap fixture", () => {
-  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "security-bootstrap"], {
-    cwd: new URL("..", import.meta.url),
-    encoding: "utf8",
-  });
-  const report = JSON.parse(stdout);
-  assert.equal(report.state, "alerted");
-  assert.equal(report.safeFacts.alertCount, 1);
-});
-
-test("security app fixture declares event fabric, access, and materialization requirements", () => {
-  const now = 1_700_000_000;
-  const fixture = securityAppContractFixture(now);
-  assert.equal(fixture.appContract.appId, "constitute-security");
-  assert.equal(fixture.appContract.grantRefs.includes("grant:app:constitute-security:run"), true);
-  assert.deepEqual(fixture.appContract.accessGroupRefs, ["access-group:logging.security.default"]);
-  assert.deepEqual(fixture.appContract.requiredContentClasses, ["encryptedDetail", "safeIndex"]);
-  assert.equal(fixture.appContract.projectionSubscriptions[0].processorRoleRef, "role:security.processor");
-  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.encrypted-detail.refs"), true);
-  assert.equal(fixture.appContract.materializationBudgets.some((budget) => budget.budgetId === "security.alerts.ui"), true);
-
-  const report = buildAppRunnerFulfillment(fixture);
-  assert.equal(report.state, "succeeded");
-  assert.equal(report.appId, "constitute-security");
-  assert.equal(report.sourceMode, "bundled");
-  assert.equal(report.safeFacts.sourceRefCount, 1);
-  assert.equal(report.inputRefs.includes(fixture.seed.seedId), true);
-  assertAppRunnerFulfillmentReport(report);
-});
-
-test("security runner cli emits the security app contract fixture", () => {
-  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "security-app-contract"], {
-    cwd: new URL("..", import.meta.url),
-    encoding: "utf8",
-  });
-  const fixture = JSON.parse(stdout);
-  assert.equal(fixture.appContract.appId, "constitute-security");
-  assert.equal(fixture.manifest.currentAppContractRef, "app:constitute-security");
-  assert.equal(fixture.seed.processorRoleRef, "role:security.processor");
-});
 
 test("multi-identity grant proof preserves authority plane separation", () => {
   const proof = buildMultiIdentityGrantProof(multiIdentityGrantFixture());
@@ -126,14 +31,14 @@ test("multi-identity grant proof degrades when access epoch omits grantee", () =
     ...fixture,
     accessEpoch: {
       ...fixture.accessEpoch,
-      memberRefs: ["member:logging:processor"],
+      memberRefs: ["member:sample:processor"],
     },
   });
   assert.equal(proof.state, "degraded");
   assert.equal(proof.blockedReasons.includes("granteeMissingFromAccessEpoch"), true);
 });
 
-test("security runner cli executes the multi-identity grant fixture", () => {
+test("runner cli executes the multi-identity grant fixture", () => {
   const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "multi-identity-grant"], {
     cwd: new URL("..", import.meta.url),
     encoding: "utf8",
@@ -144,7 +49,21 @@ test("security runner cli executes the multi-identity grant fixture", () => {
 });
 
 test("app runner fulfillment reports executed app contract posture", () => {
-  const report = buildAppRunnerFulfillment(appRunnerFulfillmentFixture());
+  const fixture = appRunnerFulfillmentFixture();
+  const hostPosture = buildRunnerHostFulfillmentPosture({
+    ...fixture,
+    serviceRefs: ["app:runner-proof"],
+    witnessRefs: ["witness:operator:host-proof"],
+  });
+  assert.equal(hostPosture.kind, "runner.host.fulfillment.posture");
+  assert.equal(hostPosture.state, "succeeded");
+  assert.equal(hostPosture.safeFacts.serviceHostIdentitySeparated, true);
+  assertRunnerHostPosture(hostPosture);
+
+  const report = buildAppRunnerFulfillment({
+    ...fixture,
+    hostFulfillmentPosture: hostPosture,
+  });
   assert.equal(report.kind, "app.runner.fulfillment.report");
   assert.equal(report.state, "succeeded");
   assert.equal(report.appId, "constitute-runner-proof");
@@ -152,6 +71,7 @@ test("app runner fulfillment reports executed app contract posture", () => {
   assert.equal(report.sourceMode, "bundled");
   assert.deepEqual(report.sourceRefs, ["bundle:runner-proof@0.1.0"]);
   assert.equal(report.operationPosture.accepted, true);
+  assert.equal(report.hostFulfillmentPosture.hostRef, "host:runner-lab");
   assert.equal(report.fulfillmentPosture.outputRefs.includes("artifact:runner-proof:dist"), true);
   assert.equal(report.fulfillmentPosture.releaseRefs.includes("release:runner-proof"), true);
   assert.deepEqual(report.blockedReasons, []);
@@ -191,6 +111,7 @@ test("app runner fulfillment blocks expired operation posture", () => {
   });
   assert.equal(report.state, "blocked");
   assert.equal(report.blockedReasons.includes("runnerOperationExpired"), true);
+  assert.equal(report.blockedReasons.includes("host:runnerOperationExpired"), true);
 });
 
 test("app runner fulfillment rejects unsafe safe-fact leakage", () => {
@@ -223,4 +144,25 @@ test("runner cli executes the app lifecycle fixture", () => {
   assert.equal(lifecycle.kind, "app.runner.fulfillment.lifecycle");
   assert.equal(lifecycle.state, "succeeded");
   assert.equal(lifecycle.safeFacts.appId, "constitute-runner-proof");
+});
+
+test("runner exposes build operation evidence without owning build semantics", () => {
+  const fixture = buildRunnerBuildOperationFixture();
+  assert.equal(fixture.runnerOperation.contractRef, "build:contract:cybersec-bootstrap");
+  assert.equal(fixture.runnerOperation.outputRefs.includes("release:candidate:cybersec-bootstrap"), true);
+  assert.equal(fixture.hostPosture.state, "succeeded");
+  assert.equal(fixture.hostPosture.contractRef, "build:contract:cybersec-bootstrap");
+  assert.equal(fixture.hostPosture.safeFacts.serviceHostIdentitySeparated, true);
+  assertRunnerHostPosture(fixture.hostPosture);
+});
+
+test("runner cli executes the build operation fixture", () => {
+  const stdout = execFileSync(process.execPath, ["./src/cli.mjs", "--fixture", "build-operation"], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+  });
+  const fixture = JSON.parse(stdout);
+  assert.equal(fixture.runnerOperation.state, "succeeded");
+  assert.equal(fixture.hostPosture.state, "succeeded");
+  assert.equal(fixture.runnerOperation.safeFacts.processorContract, "build");
 });

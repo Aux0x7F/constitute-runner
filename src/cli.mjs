@@ -2,13 +2,11 @@
 import fs from "node:fs";
 import {
   appRunnerFulfillmentFixture,
+  buildRunnerBuildOperationFixture,
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
   buildMultiIdentityGrantProof,
-  buildSecurityProcessorRun,
   multiIdentityGrantFixture,
-  securityAppContractFixture,
-  securityBootstrapFixture,
 } from "./index.js";
 
 function argValue(name) {
@@ -18,20 +16,14 @@ function argValue(name) {
 }
 
 function usage() {
-  console.log("Usage: constitute-runner --fixture security-bootstrap|security-app-contract|multi-identity-grant|app-fulfillment|app-lifecycle | --input <json-file>");
+  console.log("Usage: constitute-runner --fixture multi-identity-grant|app-fulfillment|app-lifecycle|build-operation | --input <json-file>");
 }
 
 const fixture = argValue("--fixture");
 const inputPath = argValue("--input");
 let input;
 
-if (fixture === "security-bootstrap") {
-  console.log(JSON.stringify(buildSecurityProcessorRun(securityBootstrapFixture()), null, 2));
-  process.exit(0);
-} else if (fixture === "security-app-contract") {
-  console.log(JSON.stringify(securityAppContractFixture(), null, 2));
-  process.exit(0);
-} else if (fixture === "multi-identity-grant") {
+if (fixture === "multi-identity-grant") {
   console.log(JSON.stringify(buildMultiIdentityGrantProof(multiIdentityGrantFixture()), null, 2));
   process.exit(0);
 } else if (fixture === "app-fulfillment") {
@@ -40,6 +32,9 @@ if (fixture === "security-bootstrap") {
 } else if (fixture === "app-lifecycle") {
   console.log(JSON.stringify(buildAppRunnerFulfillmentLifecycle(appRunnerFulfillmentFixture()), null, 2));
   process.exit(0);
+} else if (fixture === "build-operation") {
+  console.log(JSON.stringify(buildRunnerBuildOperationFixture(), null, 2));
+  process.exit(0);
 } else if (inputPath) {
   input = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 } else {
@@ -47,7 +42,10 @@ if (fixture === "security-bootstrap") {
   process.exit(1);
 }
 
-const report = input.appContract && input.manifest
-  ? (input.lifecycle ? buildAppRunnerFulfillmentLifecycle(input) : buildAppRunnerFulfillment(input))
-  : buildSecurityProcessorRun(input);
+if (!input.appContract || !input.manifest) {
+  console.error("Runner input must declare appContract and manifest. Domain processors live with their app contract.");
+  process.exit(1);
+}
+
+const report = input.lifecycle ? buildAppRunnerFulfillmentLifecycle(input) : buildAppRunnerFulfillment(input);
 console.log(JSON.stringify(report, null, 2));
