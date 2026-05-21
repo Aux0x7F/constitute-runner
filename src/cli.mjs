@@ -6,6 +6,7 @@ import {
   buildAppRunnerFulfillment,
   buildAppRunnerFulfillmentLifecycle,
   buildMultiIdentityGrantProof,
+  buildRunnerOperationForBuild,
   multiIdentityGrantFixture,
 } from "./index.js";
 
@@ -40,6 +41,11 @@ if (fixture === "multi-identity-grant") {
 } else {
   usage();
   process.exit(1);
+}
+
+if (input.buildContract && input.buildRun) {
+  console.log(JSON.stringify(buildRunnerOperationForBuild(input), null, 2));
+  process.exit(0);
 }
 
 if (!input.appContract || !input.manifest) {

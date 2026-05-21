@@ -1,5 +1,6 @@
 import {
   AGREEMENT,
+  BUILD,
   RUNNER,
   SURFACE_APP,
   SWARM,
@@ -454,71 +455,136 @@ export function appRunnerFulfillmentFixture(now = nowSeconds()) {
 }
 
 export function buildRunnerBuildOperationFixture(now = nowSeconds()) {
-  const runnerOperation = assertRunnerOperation({
-    kind: SWARM.RECORD_KIND.RUNNER_OPERATION,
-    operationId: "runner-operation:build-cybersec-bootstrap:execute:1",
-    runnerId: "runner:local-host:build",
-    runnerRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
+  const buildContract = {
+    buildContractRef: "build:contract:build-runner-proof",
+    sourceSnapshotRef: "source:snapshot:head",
+    recipeRef: "build:recipe:browser-module",
+  };
+  const buildRun = {
+    runRef: "build:run:build-runner-proof",
+    buildContractRef: buildContract.buildContractRef,
+    sourceSnapshotRef: buildContract.sourceSnapshotRef,
+    recipeRef: buildContract.recipeRef,
+    runnerRef: "runner:local-host:build",
+    runnerOperationRef: "runner-operation:build-build-runner-proof:execute:1",
+    state: "succeeded",
+    grantRefs: ["authority:grant:runner-build"],
+    artifactRefs: ["build:artifact:module"],
+    proofRefs: ["build:proof:build-runner-proof"],
+    releaseCandidateRefs: ["release:candidate:build-runner-proof"],
+    evidenceRefs: ["runner:evidence:build-accepted", "runner:evidence:build-completed"],
+    blockedReasons: [],
+    requestedAt: now,
+    startedAt: now + 2,
+    completedAt: now + 9,
+    expiresAt: now + 3600,
+  };
+  const runnerOperation = buildRunnerOperationForBuild({
+    buildContract,
+    buildRun,
+    runnerMemberRef: "4a29ff60c5c3837e9e20555bfeb2a046be3eb140818144628691fcf7efb1d2f1",
     hostRef: "host:runner-lab",
     requesterRef: "identity:aux",
-    subjectRef: "build:contract:cybersec-bootstrap",
-    contractRef: "build:contract:cybersec-bootstrap",
-    operation: RUNNER.OPERATION.EXECUTE,
-    state: RUNNER.OPERATION_STATE.SUCCEEDED,
-    grantRefs: ["authority:grant:runner-build"],
-    capabilityRefs: ["build.run.execute"],
-    inputRefs: ["source:snapshot:head", "build:recipe:browser-module"],
-    outputRefs: [
-      "build:artifact:module",
-      "build:proof:cybersec-bootstrap",
-      "release:candidate:cybersec-bootstrap",
-    ],
-    evidenceRefs: ["runner:evidence:build-accepted", "runner:evidence:build-completed"],
-    proofRefs: ["build:proof:cybersec-bootstrap"],
-    releaseRefs: ["release:candidate:cybersec-bootstrap"],
-    resourceBudget: {
-      profileRef: "resource-profile:build-lite",
-      maxMemoryMiB: 512,
-      maxCpuPct: 35,
-    },
     resourcePosture: {
       kind: SWARM.RECORD_KIND.RESOURCE_POSTURE,
-      postureId: "resource-posture:runner:build-cybersec-bootstrap",
+      postureId: "resource-posture:runner:build-build-runner-proof",
       profileId: "resource-profile:build-lite",
       state: SWARM.RESOURCE_POSTURE_STATE.WITHIN_BUDGET,
       counts: { memoryMiB: 144, cpuPct: 8 },
       budgets: { memoryMiB: 512, cpuPct: 35 },
       sampledAt: now + 3,
     },
-    secretBoundary: { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
-    releasePosture: {
-      state: SURFACE_APP.RELEASE_POSTURE.BUILD_READY,
-      buildRef: "build:contract:cybersec-bootstrap",
-      releaseRef: "release:candidate:cybersec-bootstrap",
-      rollbackRef: "rollback:cybersec-bootstrap",
-    },
-    releaseRef: "release:candidate:cybersec-bootstrap",
-    rollbackRef: "rollback:cybersec-bootstrap",
-    safeFacts: {
-      processorContract: "build",
-      sourceSnapshotRef: "source:snapshot:head",
-      artifactCount: 1,
-    },
-    requestedAt: now,
-    acceptedAt: now + 1,
-    startedAt: now + 2,
-    completedAt: now + 9,
-    observedAt: now + 10,
-    expiresAt: now + 3600,
   });
   return {
     runnerOperation,
     hostPosture: buildRunnerHostFulfillmentPosture({
       runnerOperation,
-      serviceRefs: ["build:contract:cybersec-bootstrap"],
+      serviceRefs: ["build:contract:build-runner-proof"],
       witnessRefs: ["witness:build:runner-host"],
     }),
   };
+}
+
+export function buildRunnerOperationForBuild(input = {}) {
+  const buildContract = input.buildContract || {};
+  const buildRun = input.buildRun || input.run || {};
+  const now = Number(input.now || buildRun.requestedAt || 0) || nowSeconds();
+  const contractRef = String(buildRun.buildContractRef || buildContract.buildContractRef || "").trim();
+  const sourceSnapshotRef = String(buildRun.sourceSnapshotRef || buildContract.sourceSnapshotRef || "").trim();
+  const recipeRef = String(buildRun.recipeRef || buildContract.recipeRef || "").trim();
+  const succeeded = buildRun.state === "succeeded";
+  const blockedReasons = unique(asArray(buildRun.blockedReasons));
+  const state = succeeded
+    ? RUNNER.OPERATION_STATE.SUCCEEDED
+    : buildRun.state === "failed"
+      ? RUNNER.OPERATION_STATE.FAILED
+      : RUNNER.OPERATION_STATE.BLOCKED;
+  const artifactRefs = succeeded ? unique(asArray(buildRun.artifactRefs)) : [];
+  const proofRefs = succeeded ? unique(asArray(buildRun.proofRefs)) : [];
+  const releaseRefs = succeeded ? unique(asArray(buildRun.releaseCandidateRefs)) : [];
+  const releasePosture = input.releasePosture || {
+    state: succeeded ? SURFACE_APP.RELEASE_POSTURE.BUILD_READY : SURFACE_APP.RELEASE_POSTURE.BLOCKED,
+    buildRef: contractRef,
+    ...(releaseRefs[0] ? { releaseRef: releaseRefs[0] } : {}),
+    rollbackRef: input.rollbackRef || `rollback:${contractRef.replaceAll(":", "-")}`,
+    ...(succeeded ? {} : { blockedReasons }),
+  };
+  const rollbackPosture = input.rollbackPosture || {
+    state: succeeded ? SURFACE_APP.RELEASE_POSTURE.ROLLBACK_READY : SURFACE_APP.RELEASE_POSTURE.BLOCKED,
+    rollbackRef: input.rollbackRef || `rollback:${contractRef.replaceAll(":", "-")}`,
+    ...(succeeded ? {} : { blockedReasons }),
+  };
+  const runnerOperation = {
+    kind: SWARM.RECORD_KIND.RUNNER_OPERATION,
+    operationId: String(buildRun.runnerOperationRef || input.operationId || `runner-operation:${contractRef}:execute`).trim(),
+    runnerId: String(buildRun.runnerRef || input.runnerId || "runner:local-host:build").trim(),
+    runnerRef: String(input.runnerMemberRef || input.runnerRef || "").trim(),
+    hostRef: String(input.hostRef || "host:runner-lab").trim(),
+    requesterRef: String(input.requesterRef || "identity:aux").trim(),
+    subjectRef: contractRef,
+    contractRef,
+    operation: RUNNER.OPERATION.EXECUTE,
+    state,
+    grantRefs: unique(asArray(buildRun.grantRefs).length ? buildRun.grantRefs : input.grantRefs),
+    capabilityRefs: [BUILD.CAPABILITY.RUN_EXECUTE],
+    inputRefs: unique([sourceSnapshotRef, recipeRef]),
+    outputRefs: unique([...artifactRefs, ...proofRefs, ...releaseRefs]),
+    evidenceRefs: unique([
+      ...asArray(buildRun.evidenceRefs),
+      ...(succeeded ? ["runner:evidence:build-completed"] : []),
+    ]),
+    proofRefs,
+    releaseRefs,
+    resourceBudget: input.resourceBudget || {
+      profileRef: "resource-profile:build-lite",
+      maxMemoryMiB: 512,
+      maxCpuPct: 35,
+    },
+    secretBoundary: input.secretBoundary || { state: SURFACE_APP.SECRET_BOUNDARY.NOT_REQUIRED },
+    releasePosture,
+    rollbackPosture,
+    rollbackRef: input.rollbackRef || `rollback:${contractRef.replaceAll(":", "-")}`,
+    blockedReasons,
+    safeFacts: {
+      processorContract: "build",
+      sourceSnapshotRef,
+      recipeRef,
+      artifactCount: artifactRefs.length,
+      releaseCandidateCount: releaseRefs.length,
+    },
+    requestedAt: Number(buildRun.requestedAt || now),
+    acceptedAt: succeeded ? Number(buildRun.requestedAt || now) + 1 : undefined,
+    startedAt: succeeded ? Number(buildRun.startedAt || now + 2) : undefined,
+    completedAt: succeeded ? Number(buildRun.completedAt || now + 9) : undefined,
+    observedAt: Number(input.observedAt || buildRun.completedAt || now + 1),
+    expiresAt: Number(buildRun.expiresAt || now + 3600),
+  };
+  if (input.resourcePosture) runnerOperation.resourcePosture = input.resourcePosture;
+  if (releaseRefs[0]) runnerOperation.releaseRef = releaseRefs[0];
+  if (!succeeded && runnerOperation.blockedReasons.length === 0) {
+    runnerOperation.blockedReasons = [`buildRun:${buildRun.state || "blocked"}`];
+  }
+  return assertRunnerOperation(runnerOperation);
 }
 
 export function buildMultiIdentityGrantProof(input = {}) {

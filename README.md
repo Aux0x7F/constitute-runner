@@ -17,8 +17,12 @@ npm run build
 node src/cli.mjs --fixture app-fulfillment
 node src/cli.mjs --fixture app-lifecycle
 node src/cli.mjs --fixture build-operation
+node src/cli.mjs --input target/build-runner-input.json
 ```
 
 The build-operation fixture is runner-side evidence only: it reports accepted,
 completed, resource, proof, and release-candidate refs for a build contract
 without making the runner own source, build, storage, or app semantics.
+When an input declares `buildContract` and `buildRun`, the CLI derives a
+protocol runner operation from those records instead of interpreting build
+semantics itself.
